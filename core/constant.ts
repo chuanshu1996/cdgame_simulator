@@ -149,3 +149,10 @@ export enum EventRange {
     TEAM,
     ENEMY,
 }
+
+// 回合类型
+export enum TurnType {
+    NORMAL,
+    EXTRA,
+    PSEUDO,
+}

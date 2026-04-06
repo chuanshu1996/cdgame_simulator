@@ -1,4 +1,5 @@
-import {Battle, BuffParams, Control, EventCodes, Reasons, TurnType, WaitInputProcessing} from '../';
+import {Battle, BuffParams, Control, EventCodes, Reasons, WaitInputProcessing} from '../';
+import {TurnType} from '../constant';
 import {SelectableSkill, SkillSelection, SkillTarget} from "../skill";
 import waitInputProcessor from "./wait-input";
 import {Processor} from '../task';

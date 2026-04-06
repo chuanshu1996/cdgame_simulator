@@ -11,12 +11,24 @@ import {SoulManager} from '../soul';
  * 回合处理数据类
  * 存储回合处理的相关信息
  */
-export class TurnProcessing {
+export interface BaseTurnData {
+    cannotAction: boolean;
+    onlyAttack: number;
+    confusion: boolean;
+    waitInput?: WaitInputProcessing;
+    skills: SelectableSkill[];
+    turnType?: any;
+    turn: number;
+    currentId: number;
+}
+
+export class TurnProcessing implements BaseTurnData {
     cannotAction: boolean = false; // 是否无法行动
     onlyAttack: number = 0; // 只能攻击的目标ID
     confusion: boolean = false; // 是否混乱
     waitInput?: WaitInputProcessing; // 等待输入处理
     skills: SelectableSkill[] = []; // 可选技能列表
+    turnType: any = 'normal';
 
     /**
      * 构造函数
