@@ -963,4 +963,126 @@ export default class Battle {
         };
     }
 
+    /**
+     * 召唤实体到指定队伍
+     * @param entity 要召唤的实体
+     * @param teamId 队伍ID
+     */
+    summonEntity(entity: Entity, teamId: number): void {
+        // 检查队伍是否存在
+        if (teamId < 0 || teamId >= this.fields.length) {
+            return;
+        }
+
+        // 将召唤物添加到队伍的第7个位置（索引6）
+        const summonPosition = 6;
+        if (this.fields[teamId].length <= summonPosition) {
+            // 扩展数组以容纳召唤物
+            while (this.fields[teamId].length <= summonPosition) {
+                this.fields[teamId].push(0);
+            }
+        }
+
+        // 移除该位置已有的召唤物
+        const existingEntityId = this.fields[teamId][summonPosition];
+        if (existingEntityId > 0) {
+            const existingEntity = this.entities.get(existingEntityId);
+            if (existingEntity) {
+                existingEntity.dead = true;
+            }
+        }
+
+        // 放置新的召唤物
+        this.fields[teamId][summonPosition] = entity.entityId;
+        this.entities.set(entity.entityId, entity);
+    }
+
+    /**
+     * 获取指定队伍的召唤物
+     * @param teamId 队伍ID
+     * @returns 召唤物实体，如果不存在则返回undefined
+     */
+    getSummon(teamId: number): Entity | undefined {
+        // 检查队伍是否存在
+        if (teamId < 0 || teamId >= this.fields.length) {
+            return undefined;
+        }
+
+        // 召唤物位置是第7个位置（索引6）
+        const summonPosition = 6;
+        if (this.fields[teamId].length <= summonPosition) {
+            return undefined;
+        }
+
+        const entityId = this.fields[teamId][summonPosition];
+        if (entityId <= 0) {
+            return undefined;
+        }
+
+        return this.entities.get(entityId);
+    }
+
+    /**
+     * 移除召唤物
+     * @param teamId 队伍ID
+     */
+    removeSummon(teamId: number): void {
+        // 检查队伍是否存在
+        if (teamId < 0 || teamId >= this.fields.length) {
+            return;
+        }
+
+        // 召唤物位置是第7个位置（索引6）
+        const summonPosition = 6;
+        if (this.fields[teamId].length > summonPosition) {
+            const entityId = this.fields[teamId][summonPosition];
+            if (entityId > 0) {
+                const entity = this.entities.get(entityId);
+                if (entity) {
+                    entity.dead = true;
+                }
+            }
+            this.fields[teamId][summonPosition] = 0;
+        }
+    }
+
+    /**
+     * 获取队伍实体（包括召唤物）
+     * @param teamId 队伍ID
+     * @returns 队伍实体数组
+     */
+    getTeamEntitiesWithSummon(teamId: number): Entity[] {
+        const entities: Entity[] = [];
+        if (teamId < 0 || teamId >= this.fields.length) {
+            return entities;
+        }
+
+        // 添加场上所有实体（包括召唤物）
+        for (const entityId of this.fields[teamId]) {
+            if (entityId > 0) {
+                const entity = this.entities.get(entityId);
+                if (entity && !entity.dead) {
+                    entities.push(entity);
+                }
+            }
+        }
+
+        return entities;
+    }
+
+    /**
+     * 获取敌人实体（包括召唤物）
+     * @param entityId 实体ID
+     * @returns 敌人实体数组
+     */
+    getEnemiesWithSummon(entityId: number): Entity[] {
+        const entity = this.entities.get(entityId);
+        if (!entity) {
+            return [];
+        }
+
+        const enemyTeamId = entity.teamId === 0 ? 1 : 0;
+        return this.getTeamEntitiesWithSummon(enemyTeamId);
+    }
+
 }

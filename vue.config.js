@@ -3,6 +3,7 @@ module.exports = {
     devServer: {
         port: 8080
     },
+    outputDir: 'docs',
     chainWebpack: config => {
         // GraphQL Loader
         config.module
