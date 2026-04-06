@@ -4,6 +4,7 @@ module.exports = {
         port: 8080
     },
     outputDir: 'docs',
+    publicPath: '/cdgame_simulator/',
     chainWebpack: config => {
         // GraphQL Loader
         config.module
