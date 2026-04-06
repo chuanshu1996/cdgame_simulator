@@ -3,6 +3,8 @@ import { HeroData } from '../../core';
 const avatarCache = new Map<string, string>();
 let heroDataLoaded = false;
 
+const BASE_URL = process.env.BASE_URL || '/';
+
 function initHeroData(): void {
     if (heroDataLoaded) return;
     try {
@@ -29,7 +31,7 @@ export function getAvatarPathByName(name: string | undefined, no: number | strin
     initHeroData();
     
     if (!name && !no) {
-        return '/avatar/99.png';
+        return `${BASE_URL}avatar/99.png`;
     }
     
     const cacheKey = `${name}_${no}`;
@@ -37,18 +39,18 @@ export function getAvatarPathByName(name: string | undefined, no: number | strin
         return avatarCache.get(cacheKey)!;
     }
     
-    let avatarPath = '/avatar/99.png';
+    let avatarPath = `${BASE_URL}avatar/99.png`;
     
     try {
         if (name) {
-            avatarPath = `/avatar/${name}.png`;
+            avatarPath = `${BASE_URL}avatar/${name}.png`;
         } else if (no) {
-            avatarPath = `/avatar/${no}.png`;
+            avatarPath = `${BASE_URL}avatar/${no}.png`;
         }
     } catch (e) {
         console.warn('[AvatarUtils] 获取头像路径失败:', e);
         if (no) {
-            avatarPath = `/avatar/${no}.png`;
+            avatarPath = `${BASE_URL}avatar/${no}.png`;
         }
     }
     
@@ -60,30 +62,30 @@ export function getAvatarPathByNo(no: number | string | undefined): string {
     initHeroData();
     
     if (!no) {
-        return '/avatar/99.png';
+        return `${BASE_URL}avatar/99.png`;
     }
     
     if (avatarCache.has(`_${no}`)) {
         return avatarCache.get(`_${no}`)!;
     }
     
-    let avatarPath = '/avatar/99.png';
+    let avatarPath = `${BASE_URL}avatar/99.png`;
     
     try {
         if (HeroData && Array.isArray(HeroData)) {
             const hero = HeroData.find(h => h && (h.no === no || String(h.no) === String(no) || Number(h.no) === Number(no)));
             
             if (hero && hero.name) {
-                avatarPath = `/avatar/${hero.name}.png`;
+                avatarPath = `${BASE_URL}avatar/${hero.name}.png`;
             } else {
-                avatarPath = `/avatar/${no}.png`;
+                avatarPath = `${BASE_URL}avatar/${no}.png`;
             }
         } else {
-            avatarPath = `/avatar/${no}.png`;
+            avatarPath = `${BASE_URL}avatar/${no}.png`;
         }
     } catch (e) {
         console.warn('[AvatarUtils] 根据no获取头像路径失败:', e);
-        avatarPath = `/avatar/${no}.png`;
+        avatarPath = `${BASE_URL}avatar/${no}.png`;
     }
     
     avatarCache.set(`_${no}`, avatarPath);
