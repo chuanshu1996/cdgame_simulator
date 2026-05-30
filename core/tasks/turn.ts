@@ -13,6 +13,7 @@ import {SoulManager} from '../soul';
  */
 export interface BaseTurnData {
     cannotAction: boolean;
+    cannotAttack: boolean;
     onlyAttack: number;
     confusion: boolean;
     waitInput?: WaitInputProcessing;
@@ -24,6 +25,7 @@ export interface BaseTurnData {
 
 export class TurnProcessing implements BaseTurnData {
     cannotAction: boolean = false; // 是否无法行动
+    cannotAttack: boolean = false; // 是否无法攻击（但可以释放非攻击型技能）
     onlyAttack: number = 0; // 只能攻击的目标ID
     confusion: boolean = false; // 是否混乱
     waitInput?: WaitInputProcessing; // 等待输入处理
@@ -158,6 +160,17 @@ export default function turnProcessor(battle: Battle, data: TurnProcessing, step
                 }
             }
             
+            // 检查【着迷】debuff - 在TURN_START事件后检查，因为着迷判定在TURN_START中处理
+            const hasCharmed = battle.buffs.some(buff => 
+                buff.name === '着迷' && buff.ownerId === currentEntity.entityId
+            );
+            if (hasCharmed) {
+                const charmedCannotAttack = currentEntity.getBattleData('charmed_cannot_attack') === 'true';
+                if (charmedCannotAttack) {
+                    data.cannotAttack = true;
+                }
+            }
+            
             // 触发行动开始事件
             battle.addEventProcessor(EventCodes.ACTION_START, currentEntity.entityId, data);
             return 2; // 进入处理buff步骤
@@ -232,6 +245,11 @@ export default function turnProcessor(battle: Battle, data: TurnProcessing, step
                                 }
                                 // 其他隐藏技能默认不显示
                                 if (s.no !== 3) return false;
+                            }
+                            // 检查【着迷】状态 - 无法使用攻击型技能
+                            if (data.cannotAttack) {
+                                const target = typeof s.target === 'number' ? s.target : (typeof s.target === 'function' ? -1 : -1);
+                                if (target === SkillTarget.ENEMY) return false; // 过滤掉攻击型技能
                             }
                             const cost: number = typeof s.cost === 'number' ? s.cost : s.cost(battle, currentEntity.entityId);
                             if (cost > 0) {

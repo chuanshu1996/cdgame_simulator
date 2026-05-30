@@ -9,6 +9,16 @@
         @cancel="handleClose"
     >
         <div class="stats-content">
+            <div class="save-record-section" v-if="!recordSaved">
+                <a-button type="primary" @click="saveMatchRecord" :loading="saving">
+                    <a-icon type="save" />保存比赛记录
+                </a-button>
+                <span class="save-hint">保存后将更新队伍战绩数据</span>
+            </div>
+            <div class="record-saved-hint" v-else>
+                <a-icon type="check-circle" style="color: #52c41a; margin-right: 8px;" />
+                比赛记录已保存
+            </div>
             <div class="team-section" v-for="(teamData, teamIndex) in teamStats" :key="'team-' + teamIndex">
                 <div class="team-label">{{ teamIndex === 0 ? '红队' : '蓝队' }}</div>
                 <div class="stats-table-wrapper">
@@ -28,7 +38,7 @@
                                 :class="{'row-odd': index % 2 === 0, 'row-even': index % 2 !== 0}">
                                 <td class="col-unit">
                                     <div class="unit-info">
-                                        <img :src="getAvatar(unit.entityId)" :alt="unit.name" class="unit-avatar" @error="handleAvatarError">
+                                        <img :src="getAvatar(unit)" :alt="unit.name" class="unit-avatar" @error="handleAvatarError">
                                         <span class="unit-name">{{ unit.name }}</span>
                                     </div>
                                 </td>
@@ -81,6 +91,34 @@
 </template>
 
 <script>
+    import CryptoJS from 'crypto-js';
+    import { updateHeroWinRateStats } from '../utils/hero-win-rate';
+    
+    const ENCRYPTION_KEY = 'cdgame-record-secret-key-2024';
+    
+    function decryptData(encrypted) {
+        try {
+            const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
+            return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        } catch (e) {
+            return null;
+        }
+    }
+    
+    function encryptData(data) {
+        return CryptoJS.AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();
+    }
+    
+    function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+    
+    const RANK_VALUES = {
+        'D': 6, 'C': 9, 'UC': 12, 'B': 18, 'A': 24,
+        'EX': 30, 'S': 36, 'S+': 42, 'SS': 48,
+        'SSR': 48, 'SR': 24, 'R': 12, 'N': 6,
+    };
+    
     export default {
         name: 'BattleStats',
         props: {
@@ -91,6 +129,34 @@
             battle: {
                 type: Object,
                 default: null
+            },
+            team0Name: {
+                type: String,
+                default: '红队'
+            },
+            team1Name: {
+                type: String,
+                default: '蓝队'
+            },
+            isOfficialMatch: {
+                type: Boolean,
+                default: false
+            },
+            battleSeed: {
+                type: [String, Number],
+                default: ''
+            },
+            battleLogs: {
+                type: Array,
+                default: () => []
+            },
+            savedStats: {
+                type: Array,
+                default: null
+            },
+            readOnly: {
+                type: Boolean,
+                default: false
             }
         },
         data() {
@@ -99,7 +165,9 @@
                 teamStats: [
                     { units: [] },
                     { units: [] }
-                ]
+                ],
+                recordSaved: false,
+                saving: false,
             };
         },
         watch: {
@@ -107,6 +175,7 @@
                 this.modalVisible = newVal;
                 if (newVal) {
                     this.calculateStats();
+                    this.recordSaved = this.readOnly;
                 }
             },
             modalVisible(newVal) {
@@ -117,6 +186,11 @@
         },
         methods: {
             calculateStats() {
+                if (this.savedStats && this.savedStats.length === 2) {
+                    this.teamStats = JSON.parse(JSON.stringify(this.savedStats));
+                    return;
+                }
+                
                 if (!this.battle) return;
                 
                 const teams = [{ units: [], totals: { damage: 0, damageTaken: 0, maxHit: 0, mana: 0, heal: 0 } }, 
@@ -129,6 +203,8 @@
                     const stats = {
                         entityId: entityId,
                         name: entity.name,
+                        no: entity.no,
+                        rank: entity.rank,
                         totalDamage: Number(entity.battleData?.get('totalDamage')) || 0,
                         damageTaken: Number(entity.battleData?.get('damageTaken')) || 0,
                         maxHit: Number(entity.battleData?.get('maxHit')) || 0,
@@ -162,10 +238,15 @@
                 });
             },
             
-            getAvatar(entityId) {
-                const entity = this.battle?.entities?.get(entityId);
-                if (entity && entity.no) {
-                    return `avatar/${entity.name}.png`;
+            getAvatar(unit) {
+                if (unit && unit.name) {
+                    return `avatar/${unit.name}.png`;
+                }
+                if (unit && unit.entityId) {
+                    const entity = this.battle?.entities?.get(unit.entityId);
+                    if (entity && entity.name) {
+                        return `avatar/${entity.name}.png`;
+                    }
                 }
                 return 'avatar/default.png';
             },
@@ -184,7 +265,272 @@
             
             handleClose() {
                 this.$emit('close');
-            }
+            },
+            
+            getRankValue(rank) {
+                return RANK_VALUES[rank?.toUpperCase()] || 6;
+            },
+            
+            saveMatchRecord() {
+                if ((!this.battle && !this.teamStats) || this.recordSaved) return;
+                
+                this.saving = true;
+                
+                try {
+                    let winnerName, loserName, heroIds0, heroIds1;
+                    
+                    if (this.battle) {
+                        const winner = this.battle.winner;
+                        winnerName = winner === 0 ? this.team0Name : this.team1Name;
+                        loserName = winner === 0 ? this.team1Name : this.team0Name;
+                        heroIds0 = this.teamStats[0].units.map(u => String(u.no));
+                        heroIds1 = this.teamStats[1].units.map(u => String(u.no));
+                    } else {
+                        winnerName = this.team0Name;
+                        loserName = this.team1Name;
+                        heroIds0 = this.teamStats[0].units.map(u => String(u.no));
+                        heroIds1 = this.teamStats[1].units.map(u => String(u.no));
+                    }
+                    
+                    const battleStats = JSON.parse(JSON.stringify(this.teamStats));
+                    
+                    const team0StatsFormatted = battleStats[0]?.units?.map(u => ({
+                        name: u.name,
+                        damage: u.totalDamage,
+                        damageTaken: u.damageTaken,
+                        onmyojiFireUsed: u.manaUsed,
+                        healing: u.totalHeal,
+                    })) || [];
+                    
+                    const team1StatsFormatted = battleStats[1]?.units?.map(u => ({
+                        name: u.name,
+                        damage: u.totalDamage,
+                        damageTaken: u.damageTaken,
+                        onmyojiFireUsed: u.manaUsed,
+                        healing: u.totalHeal,
+                    })) || [];
+                    
+                    const heroStatsChanges = updateHeroWinRateStats(
+                        battleStats,
+                        winnerName,
+                        loserName,
+                        this.team0Name,
+                        this.team1Name,
+                        team0StatsFormatted,
+                        team1StatsFormatted
+                    );
+                    
+                    const recordData = this.createMatchRecord(
+                        this.team0Name,
+                        this.team1Name,
+                        winnerName,
+                        loserName,
+                        heroIds0,
+                        heroIds1,
+                        this.isOfficialMatch,
+                        this.battleSeed,
+                        this.battleLogs,
+                        battleStats,
+                        heroStatsChanges
+                    );
+                    
+                    this.saveToLocalStorage(recordData);
+                    
+                    this.recordSaved = true;
+                    this.$message.success('比赛记录已保存');
+                } catch (e) {
+                    console.error('保存比赛记录失败:', e);
+                    this.$message.error('保存失败: ' + e.message);
+                } finally {
+                    this.saving = false;
+                }
+            },
+            
+            createMatchRecord(team0Name, team1Name, winnerName, loserName, heroIds0, heroIds1, isOfficial, seed, battleLogs, battleStats, heroStatsChanges) {
+                const rollbackData = this.calculateRollbackData(
+                    team0Name, team1Name, winnerName, loserName, heroIds0, heroIds1, isOfficial
+                );
+                
+                return {
+                    id: generateId(),
+                    team0Name,
+                    team1Name,
+                    isOfficial,
+                    winnerName,
+                    loserName,
+                    seed: String(seed),
+                    recordedAt: new Date().toISOString(),
+                    battleLogs: battleLogs || [],
+                    battleStats: battleStats || [],
+                    heroStatsChanges: heroStatsChanges || {},
+                    rollbackData,
+                };
+            },
+            
+            calculateRollbackData(team0Name, team1Name, winnerName, loserName, heroIds0, heroIds1, isOfficial) {
+                const encrypted = localStorage.getItem('cdgame_record_data');
+                let teams = [];
+                
+                if (encrypted) {
+                    const data = decryptData(encrypted);
+                    if (data && data.teams) {
+                        teams = data.teams;
+                    }
+                }
+                
+                const winnerTeam = teams.find(t => t.name === winnerName);
+                const loserTeam = teams.find(t => t.name === loserName);
+                
+                const rollbackData = {
+                    winnerChanges: { wins: 0, score: 0, jade: 0 },
+                    loserChanges: { losses: 0, jade: 0 },
+                    heroExpChanges: [],
+                };
+                
+                if (!winnerTeam || !loserTeam) {
+                    return rollbackData;
+                }
+                
+                const winnerHeroIds = winnerName === team0Name ? heroIds0 : heroIds1;
+                const loserHeroIds = winnerName === team0Name ? heroIds1 : heroIds0;
+                
+                if (isOfficial) {
+                    rollbackData.winnerChanges.wins = 1;
+                    rollbackData.loserChanges.losses = 1;
+                } else {
+                    rollbackData.winnerChanges.score = 1;
+                }
+                
+                const allHeroIds = [...heroIds0, ...heroIds1];
+                const totalValue = this.calculateTeamValue(allHeroIds, teams);
+                
+                let winnerJade = Math.round(totalValue / 12);
+                let loserJade = Math.round(totalValue / 10);
+                
+                if (isOfficial) {
+                    winnerJade *= 2;
+                    loserJade *= 2;
+                }
+                
+                rollbackData.winnerChanges.jade = winnerJade;
+                rollbackData.loserChanges.jade = loserJade;
+                
+                winnerHeroIds.forEach(heroId => {
+                    const currentExp = winnerTeam.heroExps?.[heroId] || 0;
+                    let expGain = 0;
+                    
+                    if (isOfficial) {
+                        expGain = 1;
+                    } else if (currentExp === 0) {
+                        expGain = 1;
+                    }
+                    
+                    if (expGain > 0) {
+                        rollbackData.heroExpChanges.push({
+                            teamName: winnerName,
+                            heroId,
+                            expGain,
+                        });
+                    }
+                });
+                
+                loserHeroIds.forEach(heroId => {
+                    const currentExp = loserTeam.heroExps?.[heroId] || 0;
+                    let expGain = 0;
+                    
+                    if (isOfficial) {
+                        expGain = 1;
+                    } else if (currentExp === 0) {
+                        expGain = 1;
+                    }
+                    
+                    if (expGain > 0) {
+                        rollbackData.heroExpChanges.push({
+                            teamName: loserName,
+                            heroId,
+                            expGain,
+                        });
+                    }
+                });
+                
+                return rollbackData;
+            },
+            
+            calculateTeamValue(heroIds, teams) {
+                let totalValue = 0;
+                heroIds.forEach(heroId => {
+                    for (const team of teams) {
+                        if (team.heroExps && team.heroExps[heroId] !== undefined) {
+                            const rank = this.getHeroRank(heroId);
+                            totalValue += this.getRankValue(rank);
+                            break;
+                        }
+                    }
+                });
+                return totalValue;
+            },
+            
+            getHeroRank(heroId) {
+                for (const unit of [...this.teamStats[0].units, ...this.teamStats[1].units]) {
+                    if (String(unit.no) === String(heroId)) {
+                        return unit.rank;
+                    }
+                }
+                return 'N';
+            },
+            
+            saveToLocalStorage(recordData) {
+                const encrypted = localStorage.getItem('cdgame_record_data');
+                let data = { teams: [], matchRecords: [] };
+                
+                if (encrypted) {
+                    const decrypted = decryptData(encrypted);
+                    if (decrypted) {
+                        data = decrypted;
+                    }
+                }
+                
+                if (!data.matchRecords) {
+                    data.matchRecords = [];
+                }
+                
+                data.matchRecords.unshift(recordData);
+                
+                this.updateTeamStats(data, recordData);
+                
+                data.savedAt = new Date().toISOString();
+                
+                const newEncrypted = encryptData(data);
+                localStorage.setItem('cdgame_record_data', newEncrypted);
+            },
+            
+            updateTeamStats(data, recordData) {
+                const { team0Name, team1Name, winnerName, loserName, isOfficial, rollbackData } = recordData;
+                
+                const winnerTeam = data.teams.find(t => t.name === winnerName);
+                const loserTeam = data.teams.find(t => t.name === loserName);
+                
+                if (!winnerTeam || !loserTeam) return;
+                
+                if (isOfficial) {
+                    winnerTeam.wins = (winnerTeam.wins || 0) + 1;
+                    loserTeam.losses = (loserTeam.losses || 0) + 1;
+                } else {
+                    winnerTeam.score = (winnerTeam.score || 0) + 1;
+                }
+                
+                winnerTeam.jade = (winnerTeam.jade || 0) + (rollbackData.winnerChanges.jade || 0);
+                loserTeam.jade = (loserTeam.jade || 0) + (rollbackData.loserChanges.jade || 0);
+                
+                rollbackData.heroExpChanges.forEach(change => {
+                    const team = change.teamName === winnerName ? winnerTeam : loserTeam;
+                    if (!team.heroExps) {
+                        team.heroExps = {};
+                    }
+                    const currentExp = team.heroExps[change.heroId] || 0;
+                    team.heroExps[change.heroId] = currentExp + change.expGain;
+                });
+            },
         }
     };
 </script>
@@ -363,6 +709,34 @@
         text-align: center;
         color: #999;
         padding: 40px;
+        font-size: 14px;
+    }
+    
+    .save-record-section {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 16px;
+        padding: 12px 16px;
+        background: #f6ffed;
+        border: 1px solid #b7eb8f;
+        border-radius: 8px;
+    }
+    
+    .save-hint {
+        color: #52c41a;
+        font-size: 13px;
+    }
+    
+    .record-saved-hint {
+        display: flex;
+        align-items: center;
+        margin-bottom: 16px;
+        padding: 12px 16px;
+        background: #f6ffed;
+        border: 1px solid #b7eb8f;
+        border-radius: 8px;
+        color: #52c41a;
         font-size: 14px;
     }
     

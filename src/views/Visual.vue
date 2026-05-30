@@ -122,7 +122,7 @@
         </div>
         <div class="team-field" v-for="teamId in 2" :key="teamId">
             <div class="mana-bar" :class="['team' + (teamId - 1)]">
-                <div class="mana-label">{{ teamId === 1 ? '红队' : '蓝队' }}鬼火</div>
+                <div class="mana-label">{{ teamId === 1 ? team0Name : team1Name }}鬼火</div>
                 <div class="mana-orbs">
                     <span 
                         v-for="n in 8" 
@@ -410,16 +410,13 @@
     }
     
     .debug > * {
-        max-width: 1200px;
         margin: 0 auto;
         width: 100%;
         box-sizing: border-box;
     }
     
-    /* 响应式容器 */
     .container {
         width: 100%;
-        max-width: 1200px;
         margin: 0 auto;
         box-sizing: border-box;
     }
@@ -2104,6 +2101,12 @@
             },
             team1() {
                 return this.data.teams[1];
+            },
+            team0Name() {
+                return this.$store.state.team0Name || '红队';
+            },
+            team1Name() {
+                return this.$store.state.team1Name || '蓝队';
             },
         },
         methods: {

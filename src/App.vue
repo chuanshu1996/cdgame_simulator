@@ -12,17 +12,27 @@
         </a-layout-sider>
         <a-layout class="site-right">
             <a-layout-header class="site-right-header">
-                <a-icon
-                        class="trigger"
-                        :type="collapsed ? 'menu-unfold' : 'menu-fold'"
-                        @click="()=> collapsed = !collapsed"
-                />
-                <a-icon
-                        class="trigger debug-toggle"
-                        :type="hideDebugInfo ? 'eye-invisible' : 'eye'"
-                        :title="hideDebugInfo ? '显示调试信息' : '隐藏调试信息'"
-                        @click="toggleDebugInfo"
-                />
+                <div class="header-left">
+                    <a-icon
+                            class="trigger"
+                            :type="collapsed ? 'menu-unfold' : 'menu-fold'"
+                            @click="()=> collapsed = !collapsed"
+                    />
+                    <a-icon
+                            class="trigger debug-toggle"
+                            :type="hideDebugInfo ? 'eye-invisible' : 'eye'"
+                            :title="hideDebugInfo ? '显示调试信息' : '隐藏调试信息'"
+                            @click="toggleDebugInfo"
+                    />
+                </div>
+                <div class="header-right">
+                    <a-button v-if="!isAdminLoggedIn" type="link" class="admin-btn" @click="showAdminLoginModal">
+                        <a-icon type="user" />管理员登录
+                    </a-button>
+                    <a-button v-else type="link" class="admin-btn" @click="adminLogout">
+                        <a-icon type="logout" />管理员登出
+                    </a-button>
+                </div>
             </a-layout-header>
             <a-layout-content class="site-content"
             >
@@ -30,21 +40,53 @@
             </a-layout-content>
 
         </a-layout>
+        
+        <a-modal 
+            v-model="adminLoginModalVisible" 
+            title="管理员登录" 
+            @ok="verifyAdminPassword" 
+            @cancel="closeAdminLoginModal"
+            :maskClosable="false"
+            okText="登录"
+            cancelText="取消">
+            <a-input-password 
+                v-model="adminPassword" 
+                placeholder="请输入管理员密码" 
+                @pressEnter="verifyAdminPassword"
+                ref="adminPasswordInput" />
+            <p v-if="adminPasswordError" class="error-text">{{ adminPasswordError }}</p>
+        </a-modal>
     </a-layout>
 </template>
 <script>
     import { menuItems } from './config/menu';
+    import { mapState } from 'vuex';
     
     export default {
         data() {
             return {
                 collapsed: false,
                 hideDebugInfo: false,
-                menuItems
+                menuItems,
+                adminLoginModalVisible: false,
+                adminPassword: '',
+                adminPasswordError: '',
             };
         },
+        computed: {
+            ...mapState(['isAdminLoggedIn']),
+            selectedKeys() {
+                return [this.$route.path]
+            },
+            visibleMenuItems() {
+                return this.menuItems.filter(item => {
+                    if (item.hidden) return false;
+                    if (item.adminOnly && !this.isAdminLoggedIn) return false;
+                    return true;
+                });
+            }
+        },
         methods: {
-            // 防抖函数
             debounce(func, delay) {
                 let timeoutId;
                 return function(...args) {
@@ -54,7 +96,6 @@
             },
             
             onSelectMenu({selectedKeys}) {
-                // 使用防抖处理菜单切换，避免频繁路由切换
                 const debouncedPush = this.debounce((path) => {
                     this.$router.push(path);
                 }, 50);
@@ -66,14 +107,35 @@
             toggleDebugInfo() {
                 this.hideDebugInfo = !this.hideDebugInfo;
                 this.$root.$emit('toggle-debug-info', this.hideDebugInfo);
-            }
-        },
-        computed: {
-            selectedKeys() {
-                return [this.$route.path]
             },
-            visibleMenuItems() {
-                return this.menuItems.filter(item => !item.hidden);
+            showAdminLoginModal() {
+                this.adminLoginModalVisible = true;
+                this.adminPassword = '';
+                this.adminPasswordError = '';
+                this.$nextTick(() => {
+                    if (this.$refs.adminPasswordInput) {
+                        this.$refs.adminPasswordInput.focus();
+                    }
+                });
+            },
+            closeAdminLoginModal() {
+                this.adminLoginModalVisible = false;
+                this.adminPassword = '';
+                this.adminPasswordError = '';
+            },
+            verifyAdminPassword() {
+                this.$store.commit('ADMIN_LOGIN', this.adminPassword);
+                if (this.isAdminLoggedIn) {
+                    this.adminLoginModalVisible = false;
+                    this.adminPasswordError = '';
+                    this.$message.success('管理员登录成功');
+                } else {
+                    this.adminPasswordError = '密码错误，请重试';
+                }
+            },
+            adminLogout() {
+                this.$store.commit('ADMIN_LOGOUT');
+                this.$message.info('已退出管理员登录');
             }
         }
     }
@@ -110,6 +172,20 @@
             padding: 0;
             width: 100%;
             height: 64px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            .header-left {
+                display: flex;
+                align-items: center;
+            }
+
+            .header-right {
+                display: flex;
+                align-items: center;
+                padding-right: 16px;
+            }
 
             .trigger {
                 font-size: 18px;
@@ -128,6 +204,14 @@
                 
                 &:hover {
                     color: #1870d6;
+                }
+            }
+
+            .admin-btn {
+                color: #666;
+                
+                &:hover {
+                    color: #1890ff;
                 }
             }
         }
@@ -150,4 +234,8 @@
         }
     }
 
+    .error-text {
+        color: #ff4d4f;
+        margin-top: 8px;
+    }
 </style>

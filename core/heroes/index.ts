@@ -63,8 +63,8 @@ function build(no: number, tags: string[], ai: AI, ...skills: Skill[]) {
             entity.setProperty(BattleProperties.SPD, data.spd);
             entity.setProperty(BattleProperties.CRI, data.cri);
             entity.setProperty(BattleProperties.CRI_DMG, data.cri_dmg);
-            entity.setProperty(BattleProperties.EFT_HIT, data.eft_hit ? data.eft_hit / 100 : 0);
-            entity.setProperty(BattleProperties.EFT_RES, data.eft_res ? data.eft_res / 100 : 0);
+            entity.setProperty(BattleProperties.EFT_HIT, data.eft_hit);
+            entity.setProperty(BattleProperties.EFT_RES, data.eft_res);
             entity.rank = data.rank;
             entity.hp = data.hp;
             entity.name = data.name;

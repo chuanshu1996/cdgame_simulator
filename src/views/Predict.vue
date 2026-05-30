@@ -21,8 +21,8 @@
             <a-button v-if="errorLogs.length > 0" @click="showErrorLogs">查看错误日志</a-button>
             <span v-if="total" class="progress-text">剩余计算次数: {{total}}</span>
             <span v-if="!total && hasResults" class="result-text">
-                红队赢{{results[battleMode].winner0}}次({{Math.floor(results[battleMode].winner0/count*100)}}%)
-                蓝队赢{{results[battleMode].winner1}}次({{Math.floor(results[battleMode].winner1/count*100)}}%)
+                {{ team0Name }}赢{{results[battleMode].winner0}}次({{Math.floor(results[battleMode].winner0/count*100)}}%)
+                {{ team1Name }}赢{{results[battleMode].winner1}}次({{Math.floor(results[battleMode].winner1/count*100)}}%)
                 <span v-if="results[battleMode].error > 0">
                     错误{{results[battleMode].error}}次({{Math.floor(results[battleMode].error/count*100)}}%)
                 </span>
@@ -47,8 +47,8 @@
                         </div>
                     </div>
                     <div class="bar-labels">
-                        <span>红队</span>
-                        <span>蓝队</span>
+                        <span>{{ team0Name }}</span>
+                        <span>{{ team1Name }}</span>
                         <span v-if="result.error > 0">错误</span>
                     </div>
                 </div>
@@ -144,6 +144,12 @@
                 return this.results['1v1'].winner0 + this.results['1v1'].winner1 > 0 ||
                        this.results['5v5'].winner0 + this.results['5v5'].winner1 > 0 ||
                        this.results['6v6'].winner0 + this.results['6v6'].winner1 > 0;
+            },
+            team0Name() {
+                return this.$store.state.team0Name || '红队';
+            },
+            team1Name() {
+                return this.$store.state.team1Name || '蓝队';
             }
         },
         methods: {

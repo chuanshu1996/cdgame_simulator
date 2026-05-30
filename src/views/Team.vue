@@ -1,7 +1,37 @@
 <template>
     <div class="team">
+        <div class="match-mode-switch">
+            <span class="mode-label">比赛模式：</span>
+            <a-radio-group v-model="isOfficialMatch" @change="onMatchModeChange" :disabled="!isAdminLoggedIn">
+                <a-radio-button :value="false">友谊赛</a-radio-button>
+                <a-radio-button :value="true">正赛</a-radio-button>
+            </a-radio-group>
+            <span class="mode-hint" v-if="isOfficialMatch">
+                <a-icon type="info-circle" /> 正赛模式下，经验&lt;3且非公开邀请的选手不可选用
+            </span>
+        </div>
+        
         <div class="team-section">
-            <div class="team-title">红队</div>
+            <div class="team-title-row">
+                <div class="team-title">红队</div>
+                <a-select
+                    :value="team0Name"
+                    class="team-name-select"
+                    placeholder="选择队伍"
+                    @change="handleTeamNameChange(0, $event)"
+                    allowClear
+                    showSearch
+                    :filterOption="filterTeamName"
+                >
+                    <a-select-option 
+                        v-for="team in recordTeams" 
+                        :key="team.id"
+                        :value="team.name"
+                    >
+                        {{ team.name }}
+                    </a-select-option>
+                </a-select>
+            </div>
             <div class="table-container">
                 <table class="attr-table">
                     <thead>
@@ -29,7 +59,7 @@
                                     showSearch
                                     :value="member.no || undefined"
                                     placeholder="输入选手姓名"
-                                    style="width: 140px"
+                                    style="width: 165px"
                                     :filterOption="filterHero"
                                     @change="handleSelectChange(0, idx, $event)"
                                     :loading="searchLoading"
@@ -39,13 +69,17 @@
                                     :dropdownStyle="{ maxWidth: '300px' }"
                                 >
                                     <a-select-option 
-                                        v-for="hero in flatHeroList" 
+                                        v-for="hero in getAvailableHeroes(0)" 
                                         :key="hero.no"
                                         :value="hero.no"
+                                        :disabled="isHeroDisabled(0, hero.no)"
                                     >
                                         <div class="hero-option">
                                             <span class="hero-rank-tag" :class="'rank-' + hero.rank.toLowerCase()">{{ hero.rank }}</span>
                                             <span class="hero-name">{{ hero.name }}</span>
+                                            <span v-if="getHeroExp(0, hero.no) >= 6" class="exp-tag maxed">满</span>
+                                            <span v-else-if="getHeroExp(0, hero.no) >= 3" class="exp-tag qualified">{{ getHeroExp(0, hero.no) }}</span>
+                                            <span v-else class="exp-tag unqualified">{{ getHeroExp(0, hero.no) }}</span>
                                         </div>
                                     </a-select-option>
                                 </a-select>
@@ -82,7 +116,8 @@
                             <td class="col-attr" v-for="label in attrLabels" :key="label.key">
                                 <a-input-number
                                     :value="member[label.key]" :min="label.min" :max="label.max" :precision="label.precision"
-                                    @change="handleChange2(0, idx, label.key, $event)" class="attr-input" />
+                                    @change="handleChange2(0, idx, label.key, $event)" class="attr-input" 
+                                    :disabled="!isAdminLoggedIn" />
                             </td>
                         </tr>
                     </tbody>
@@ -93,7 +128,26 @@
         <a-divider style="margin: 8px 0;" />
         
         <div class="team-section">
-            <div class="team-title">蓝队</div>
+            <div class="team-title-row">
+                <div class="team-title">蓝队</div>
+                <a-select
+                    :value="team1Name"
+                    class="team-name-select"
+                    placeholder="选择队伍"
+                    @change="handleTeamNameChange(1, $event)"
+                    allowClear
+                    showSearch
+                    :filterOption="filterTeamName"
+                >
+                    <a-select-option 
+                        v-for="team in recordTeams" 
+                        :key="team.id"
+                        :value="team.name"
+                    >
+                        {{ team.name }}
+                    </a-select-option>
+                </a-select>
+            </div>
             <div class="table-container">
                 <table class="attr-table">
                     <thead>
@@ -121,7 +175,7 @@
                                     showSearch
                                     :value="member.no || undefined"
                                     placeholder="输入选手姓名"
-                                    style="width: 140px"
+                                    style="width: 165px"
                                     :filterOption="filterHero"
                                     @change="handleSelectChange(1, idx, $event)"
                                     :loading="searchLoading"
@@ -131,13 +185,17 @@
                                     :dropdownStyle="{ maxWidth: '300px' }"
                                 >
                                     <a-select-option 
-                                        v-for="hero in flatHeroList" 
+                                        v-for="hero in getAvailableHeroes(1)" 
                                         :key="hero.no"
                                         :value="hero.no"
+                                        :disabled="isHeroDisabled(1, hero.no)"
                                     >
                                         <div class="hero-option">
                                             <span class="hero-rank-tag" :class="'rank-' + hero.rank.toLowerCase()">{{ hero.rank }}</span>
                                             <span class="hero-name">{{ hero.name }}</span>
+                                            <span v-if="getHeroExp(1, hero.no) >= 6" class="exp-tag maxed">满</span>
+                                            <span v-else-if="getHeroExp(1, hero.no) >= 3" class="exp-tag qualified">{{ getHeroExp(1, hero.no) }}</span>
+                                            <span v-else class="exp-tag unqualified">{{ getHeroExp(1, hero.no) }}</span>
                                         </div>
                                     </a-select-option>
                                 </a-select>
@@ -174,7 +232,8 @@
                             <td class="col-attr" v-for="label in attrLabels" :key="label.key">
                                 <a-input-number
                                     :value="member[label.key]" :min="label.min" :max="label.max" :precision="label.precision"
-                                    @change="handleChange2(1, idx, label.key, $event)" class="attr-input" />
+                                    @change="handleChange2(1, idx, label.key, $event)" class="attr-input" 
+                                    :disabled="!isAdminLoggedIn" />
                             </td>
                         </tr>
                     </tbody>
@@ -187,6 +246,18 @@
 <script>
     import { HeroData, SoulData } from '../../core'
     import {mapState} from 'vuex'
+    import CryptoJS from 'crypto-js';
+
+    const ENCRYPTION_KEY = 'cdgame-record-secret-key-2024';
+
+    function decryptData(encrypted) {
+        try {
+            const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
+            return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        } catch (e) {
+            return null;
+        }
+    }
 
     export default {
         data() {
@@ -236,12 +307,110 @@
                 soulData: SoulData,
                 searchLoading: false,
                 searchTimer: null,
+                recordTeams: [],
+                recordData: null,
             }
         },
         computed: {
-            ...mapState(['team0', "team1", "maxedStatus", "soulSelections"])
+            ...mapState(['team0', "team1", "maxedStatus", "soulSelections", "team0Name", "team1Name", "isOfficialMatch", "isAdminLoggedIn"])
+        },
+        watch: {
+            team0: {
+                handler() {
+                    this.autoSetMaxedStatus(0);
+                },
+                deep: true,
+            },
+            team1: {
+                handler() {
+                    this.autoSetMaxedStatus(1);
+                },
+                deep: true,
+            },
+            team0Name() {
+                this.autoSetMaxedStatus(0);
+            },
+            team1Name() {
+                this.autoSetMaxedStatus(1);
+            },
+        },
+        mounted() {
+            this.loadRecordTeams();
         },
         methods: {
+            loadRecordTeams() {
+                try {
+                    const encrypted = localStorage.getItem('cdgame_record_data');
+                    if (encrypted) {
+                        const data = decryptData(encrypted);
+                        if (data && data.teams) {
+                            this.recordTeams = data.teams;
+                            this.recordData = data;
+                        }
+                    }
+                } catch (e) {
+                    console.error('加载队伍战绩数据失败:', e);
+                }
+            },
+            onMatchModeChange(e) {
+                const value = e.target ? e.target.value : e;
+                this.$store.commit('SET_OFFICIAL_MATCH', value);
+                this.autoSetMaxedStatus(0);
+                this.autoSetMaxedStatus(1);
+            },
+            getTeamRecord(teamId) {
+                const teamName = teamId === 0 ? this.team0Name : this.team1Name;
+                if (!teamName || !this.recordTeams) return null;
+                return this.recordTeams.find(t => t.name === teamName);
+            },
+            getHeroExp(teamId, heroNo) {
+                const teamRecord = this.getTeamRecord(teamId);
+                if (!teamRecord || !teamRecord.heroExps) return 0;
+                const heroId = this.getHeroIdByNo(heroNo);
+                return teamRecord.heroExps[heroId] || 0;
+            },
+            isPublicInviteHero(teamId, heroNo) {
+                const teamRecord = this.getTeamRecord(teamId);
+                if (!teamRecord || !teamRecord.drawnHeroIds) return false;
+                const heroId = this.getHeroIdByNo(heroNo);
+                return teamRecord.drawnHeroIds.includes(heroId);
+            },
+            getHeroIdByNo(heroNo) {
+                return String(heroNo);
+            },
+            isHeroDisabled(teamId, heroNo) {
+                if (!this.isOfficialMatch) return false;
+                const exp = this.getHeroExp(teamId, heroNo);
+                const isPublicInvite = this.isPublicInviteHero(teamId, heroNo);
+                return exp < 3 && !isPublicInvite;
+            },
+            getAvailableHeroes(teamId) {
+                return this.flatHeroList;
+            },
+            autoSetMaxedStatus(teamId) {
+                const team = teamId === 0 ? this.team0 : this.team1;
+                team.forEach((member, idx) => {
+                    if (member.no) {
+                        const exp = this.getHeroExp(teamId, member.no);
+                        const shouldBeMaxed = exp >= 6;
+                        const currentMaxed = this.maxedStatus[teamId][idx];
+                        if (shouldBeMaxed && !currentMaxed) {
+                            this.$store.commit('SET_MAXED', { teamId, index: idx, maxed: true });
+                        } else if (!shouldBeMaxed && currentMaxed) {
+                            this.$store.commit('SET_MAXED', { teamId, index: idx, maxed: false });
+                        }
+                    }
+                });
+            },
+            handleTeamNameChange(teamId, name) {
+                this.$store.commit('UPDATE_TEAM_NAME', { teamId, name: name || '' });
+            },
+            filterTeamName(input, option) {
+                if (!input) return true;
+                const searchStr = input.toLowerCase().trim();
+                const teamName = option.componentOptions.propsData.value.toLowerCase();
+                return teamName.includes(searchStr);
+            },
             filterHero(input, option) {
                 if (!input) return true;
                 const searchStr = input.toLowerCase().trim();
@@ -309,12 +478,45 @@
         justify-content: center;
         flex-direction: column;
         padding: 8px;
-        max-width: 1400px;
-        margin: 0 auto;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .match-mode-switch {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        padding: 8px 12px;
+        background: #fafafa;
+        border-radius: 4px;
+    }
+    
+    .mode-label {
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .mode-hint {
+        font-size: 12px;
+        color: #faad14;
+        margin-left: 12px;
     }
     
     .team-section {
         margin-bottom: 4px;
+    }
+    
+    .team-title-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 4px;
+        padding-left: 4px;
+    }
+    
+    .team-name-select {
+        width: 150px;
     }
     
     .table-container {
@@ -501,18 +703,20 @@
     .hero-option {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
+        max-width: 180px;
     }
     
     .hero-rank-tag {
         display: inline-block;
-        padding: 1px 6px;
+        padding: 1px 5px;
         font-size: 10px;
         font-weight: bold;
         border-radius: 3px;
         text-transform: uppercase;
-        min-width: 28px;
+        min-width: 22px;
         text-align: center;
+        flex-shrink: 0;
     }
     
     .hero-rank-tag.rank-ssr {
@@ -538,6 +742,32 @@
     .hero-name {
         font-size: 13px;
         color: #333;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .exp-tag {
+        font-size: 10px;
+        padding: 1px 4px;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+    
+    .exp-tag.maxed {
+        background: #52c41a;
+        color: white;
+    }
+    
+    .exp-tag.qualified {
+        background: #1890ff;
+        color: white;
+    }
+    
+    .exp-tag.unqualified {
+        background: #d9d9d9;
+        color: #8c8c8c;
     }
     
     .col-select >>> .ant-select-selection--single {
@@ -550,5 +780,10 @@
     
     .col-select >>> .ant-select-dropdown-menu-item {
         padding: 6px 12px;
+    }
+    
+    .col-select >>> .ant-select-dropdown-menu-item-disabled {
+        color: rgba(0, 0, 0, 0.25);
+        cursor: not-allowed;
     }
 </style>

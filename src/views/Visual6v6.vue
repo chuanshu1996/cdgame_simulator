@@ -136,7 +136,7 @@
         </div>
         <div class="team-field" v-for="teamId in 2" :key="teamId">
             <div class="mana-bar" :class="['team' + (teamId - 1)]">
-                <div class="mana-label">{{ teamId === 1 ? '红队' : '蓝队' }}鬼火</div>
+                <div class="mana-label">{{ teamId === 1 ? team0Name : team1Name }}鬼火</div>
                 <div class="mana-orbs">
                     <span 
                         v-for="n in 8" 
@@ -202,7 +202,10 @@
 
         <div class="battle-log-container" ref="logContainer">
             <div class="battle-log-header">
-                <span>战斗日志</span>
+                <span class="header-title">战斗日志</span>
+                <span class="match-mode-tag" :class="isOfficialMatch ? 'official' : 'friendly'">
+                    {{ matchModeText }}
+                </span>
                 <a-button 
                     v-if="battle && battle.isEnd"
                     type="link" 
@@ -228,6 +231,11 @@
         <BattleStats 
             :visible="showBattleStats" 
             :battle="battle"
+            :team0Name="team0Name"
+            :team1Name="team1Name"
+            :isOfficialMatch="isOfficialMatch"
+            :battleSeed="inputSeedStr || currentSeed"
+            :battleLogs="battleLogs"
             @close="showBattleStats = false"
         />
         
@@ -424,16 +432,33 @@
     }
     
     .debug > * {
-        max-width: 1200px;
         margin: 0 auto;
         width: 100%;
         box-sizing: border-box;
     }
     
-    /* 响应式容器 */
+    .match-mode-tag {
+        display: inline-block;
+        padding: 2px 12px;
+        font-size: 13px;
+        font-weight: bold;
+        border-radius: 12px;
+        flex: 1;
+        text-align: center;
+    }
+    
+    .match-mode-tag.friendly {
+        background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
+        color: white;
+    }
+    
+    .match-mode-tag.official {
+        background: linear-gradient(135deg, #faad14 0%, #fa8c16 100%);
+        color: white;
+    }
+    
     .container {
         width: 100%;
-        max-width: 1200px;
         margin: 0 auto;
         box-sizing: border-box;
     }
@@ -1480,10 +1505,15 @@
             align-items: center;
         }
         
+        .header-title {
+            flex: 0 0 auto;
+        }
+        
         .stats-btn {
             color: #1890ff;
             padding: 0 8px;
             font-size: 13px;
+            flex: 0 0 auto;
         }
         
         .stats-btn:hover {
@@ -2077,6 +2107,7 @@
             return {
                 seed: Math.random(),
                 data: empty(),
+                battle: null,
                 selectionNo: 0,
                 selectedSkill: {},
                 depth: 0,
@@ -2105,6 +2136,13 @@
             this.$root.$on('toggle-debug-info', (hidden) => {
                 this.hideDebugInfo = hidden;
             });
+            
+            const querySeed = this.$route.query.seed;
+            if (querySeed) {
+                this.inputSeedStr = String(querySeed);
+                this.seed = Number(querySeed) / 1000000000;
+            }
+            
             // eslint-disable-next-line
             // 加载8个位置的角色（包括替补和应援），但只有前6个上场
             const team0All = this.$store.state.team0.slice(0, 8);
@@ -2132,9 +2170,16 @@
             
             const data = team0WithSoul.concat(team1WithSoul);
             
-            const initialSeed = Math.floor(this.seed * 1000000000);
+            let initialSeed;
+            if (querySeed) {
+                initialSeed = Number(querySeed);
+            } else {
+                initialSeed = Math.floor(this.seed * 1000000000);
+            }
             window.battle = this.battle = new Battle(data, initialSeed);
-            this.inputSeedStr = String(initialSeed);
+            if (!querySeed) {
+                this.inputSeedStr = String(initialSeed);
+            }
             
             // 为选中"满"的角色添加满经验Buff
             // 遍历两个队伍的field，找到每个实体对应的原始位置索引
@@ -2164,6 +2209,21 @@
             },
             team1() {
                 return this.data.teams[1];
+            },
+            team0Name() {
+                return this.$store.state.team0Name || '红队';
+            },
+            team1Name() {
+                return this.$store.state.team1Name || '蓝队';
+            },
+            isOfficialMatch() {
+                return this.$store.state.isOfficialMatch || false;
+            },
+            matchModeText() {
+                return this.isOfficialMatch ? '正赛' : '友谊赛';
+            },
+            currentSeed() {
+                return this.inputSeedStr || Math.floor(this.seed * 1000000000);
             },
         },
         methods: {

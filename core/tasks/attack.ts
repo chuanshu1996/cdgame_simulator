@@ -207,6 +207,12 @@ export default function attackProcessor(battle: Battle, data: AttackProcessing, 
                 }
             }
             
+            // 记录承受伤害数据
+            if (target && attackInfo.finalDamage > 0) {
+                const currentDamageTaken = Number(target.battleData.get('damageTaken')) || 0;
+                target.battleData.set('damageTaken', String(currentDamageTaken + attackInfo.finalDamage));
+            }
+            
             // 输出伤害日志
             battle.log(`${source ? `【${source.name}(${source.teamId})】` : ''}对【${target.name}(${target.teamId})】造成${attackInfo.finalDamage}点血， 剩余${attackInfo.remainHp}`, attackInfo.isDead ? '【死亡】' : '');
             

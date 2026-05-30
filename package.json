@@ -16,6 +16,7 @@
   "author": "anzerwall",
   "license": "MIT",
   "dependencies": {
+    "@types/crypto-js": "^4.2.2",
     "@types/lodash": "^4.14.149",
     "@types/node": "^13.9.0",
     "@types/random": "^2.1.1",
@@ -23,6 +24,7 @@
     "@types/seedrandom": "^2.4.28",
     "ant-design-vue": "^1.4.12",
     "core-js": "^3.6.4",
+    "crypto-js": "^4.2.0",
     "html-loader": "^0.5.5",
     "less": "^3.11.1",
     "less-loader": "^5.0.0",

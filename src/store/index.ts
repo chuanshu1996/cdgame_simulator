@@ -2,8 +2,57 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 import { HeroData, HeroBuilders } from '../../core';
 import {sampleSize} from 'lodash';
+import CryptoJS from 'crypto-js';
 
 Vue.use(Vuex);
+
+const ENCRYPTION_KEY = 'cdgame-record-secret-key-2024';
+const ADMIN_PASSWORD_HASH = '4f323fde03b2d593d6988bb02ab0b7b7';
+const ADMIN_TOKEN_KEY = 'cdgame_admin_token';
+
+function hashPassword(password: string) {
+    return CryptoJS.MD5(password).toString();
+}
+
+function loadAdminToken(): boolean {
+    try {
+        const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+        if (token) {
+            const data = CryptoJS.AES.decrypt(token, ENCRYPTION_KEY);
+            const parsed = JSON.parse(data.toString(CryptoJS.enc.Utf8));
+            if (parsed && parsed.hash === ADMIN_PASSWORD_HASH) {
+                return true;
+            }
+        }
+    } catch (e) {
+        console.error('加载管理员令牌失败:', e);
+    }
+    return false;
+}
+
+function saveAdminToken() {
+    try {
+        const token = CryptoJS.AES.encrypt(
+            JSON.stringify({ 
+                loginTime: Date.now(),
+                hash: ADMIN_PASSWORD_HASH 
+            }), 
+            ENCRYPTION_KEY
+        ).toString();
+        localStorage.setItem(ADMIN_TOKEN_KEY, token);
+    } catch (e) {
+        console.error('保存管理员令牌失败:', e);
+    }
+}
+
+function clearAdminToken() {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+function verifyAdminPassword(password: string): boolean {
+    const hashedInput = hashPassword(password);
+    return hashedInput === ADMIN_PASSWORD_HASH;
+}
 
 function data2myData(data: any) {
     if (!data) return {};
@@ -146,11 +195,15 @@ function ensureMaxedStatusSize(status: boolean[]) {
 const initialState = {
     team0: ensureTeamSize(savedState?.team0, 0) || getTeamMembers(heroList, 0),
     team1: ensureTeamSize(savedState?.team1, 1) || getTeamMembers(heroList, 1),
+    team0Name: savedState?.team0Name || '红队',
+    team1Name: savedState?.team1Name || '蓝队',
     maxedStatus: {
         0: ensureMaxedStatusSize(savedState?.maxedStatus?.[0]) || [false, false, false, false, false, false, false, false],
         1: ensureMaxedStatusSize(savedState?.maxedStatus?.[1]) || [false, false, false, false, false, false, false, false],
     },
     soulSelections: convertSoulSelections(savedState?.soulSelections),
+    isAdminLoggedIn: loadAdminToken(),
+    isOfficialMatch: savedState?.isOfficialMatch || false,
 };
 
 export default new Vuex.Store({
@@ -242,6 +295,31 @@ export default new Vuex.Store({
             Vue.set(state.soulSelections[teamId], index, soulIds);
             
             // 保存状态到本地存储
+            saveState(state);
+        },
+        UPDATE_TEAM_NAME(state, payload: { teamId: 0 | 1; name: string }) {
+            const { teamId, name } = payload;
+            if (teamId === 0) {
+                state.team0Name = name;
+            } else {
+                state.team1Name = name;
+            }
+            
+            // 保存状态到本地存储
+            saveState(state);
+        },
+        ADMIN_LOGIN(state, password: string) {
+            if (verifyAdminPassword(password)) {
+                state.isAdminLoggedIn = true;
+                saveAdminToken();
+            }
+        },
+        ADMIN_LOGOUT(state) {
+            state.isAdminLoggedIn = false;
+            clearAdminToken();
+        },
+        SET_OFFICIAL_MATCH(state, isOfficial: boolean) {
+            state.isOfficialMatch = isOfficial;
             saveState(state);
         },
     },
