@@ -27,6 +27,7 @@ import {duojiu_lixiu_skill1, duojiu_lixiu_skill2, duojiu_lixiu_skill3} from './d
 import {honnai_naruka_skill1, honnai_naruka_skill2, honnai_naruka_skill3} from './c/honnai-naruka';
 import {fukabori_sumiyo_skill1, fukabori_sumiyo_skill2, fukabori_sumiyo_skill3} from './c/fukabori-sumiyo';
 import {bonkohara_mio_skill1, bonkohara_mio_skill2, bonkohara_mio_skill3} from './c/bonkohara-mio';
+import {utsuki_tamako_skill1, utsuki_tamako_skill2, utsuki_tamako_skill3} from './c/utsuki-tamako';
 import {AI} from "../entity";
 
 // SSR角色技能
@@ -235,6 +236,12 @@ HERO('盆子原美绪', [
     bonkohara_mio_skill1,
     bonkohara_mio_skill2,
     bonkohara_mio_skill3,
+]);
+
+HERO('宇津木玉子', [
+    utsuki_tamako_skill1,
+    utsuki_tamako_skill2,
+    utsuki_tamako_skill3,
 ]);
 
 // SSR阶选手
