@@ -49,6 +49,7 @@ function buildFearDebuff(sourceId: number, targetId: number): Buff {
     return Buff.build(sourceId, targetId)
         .name('害怕', 1)
         .countDown(1) // 持续1回合
+        .control(Control.DIZZY) // 使用眩晕控制类型，使目标可能无法行动
         .debuff()
         .end();
 }

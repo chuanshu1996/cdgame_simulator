@@ -31,6 +31,8 @@
                                 <th class="col-data">单次伤害<br><span class="percent-hint">%</span></th>
                                 <th class="col-data">鬼火消耗<br><span class="percent-hint">%</span></th>
                                 <th class="col-data">治疗量<br><span class="percent-hint">%</span></th>
+                                <th class="col-data">护盾量<br><span class="percent-hint">%</span></th>
+                                <th class="col-data">控制次数<br><span class="percent-hint">%</span></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -77,9 +79,23 @@
                                         <div class="progress-fill heal-fill" :style="{width: unit.healPercent + '%'}"></div>
                                     </div>
                                 </td>
+                                <td class="col-data">
+                                    <div class="data-value">{{ formatNumber(unit.totalShield) }}</div>
+                                    <div class="data-percent">{{ unit.shieldPercent }}%</div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill shield-fill" :style="{width: unit.shieldPercent + '%'}"></div>
+                                    </div>
+                                </td>
+                                <td class="col-data">
+                                    <div class="data-value">{{ unit.totalControl }}</div>
+                                    <div class="data-percent">{{ unit.controlPercent }}%</div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill control-fill" :style="{width: unit.controlPercent + '%'}"></div>
+                                    </div>
+                                </td>
                             </tr>
                             <tr v-if="teamData.units.length === 0">
-                                <td colspan="6" class="no-data">暂无数据</td>
+                                <td colspan="8" class="no-data">暂无数据</td>
                             </tr>
                         </tbody>
                     </table>
@@ -193,8 +209,8 @@
                 
                 if (!this.battle) return;
                 
-                const teams = [{ units: [], totals: { damage: 0, damageTaken: 0, maxHit: 0, mana: 0, heal: 0 } }, 
-                              { units: [], totals: { damage: 0, damageTaken: 0, maxHit: 0, mana: 0, heal: 0 } }];
+                const teams = [{ units: [], totals: { damage: 0, damageTaken: 0, maxHit: 0, mana: 0, heal: 0, shield: 0, control: 0 } }, 
+                              { units: [], totals: { damage: 0, damageTaken: 0, maxHit: 0, mana: 0, heal: 0, shield: 0, control: 0 } }];
                 
                 this.battle.entities.forEach((entity, entityId) => {
                     if (entity.teamId < 0 || entity.teamId > 1) return;
@@ -210,11 +226,15 @@
                         maxHit: Number(entity.battleData?.get('maxHit')) || 0,
                         manaUsed: Number(entity.battleData?.get('manaUsed')) || 0,
                         totalHeal: Number(entity.battleData?.get('totalHeal')) || 0,
+                        totalShield: Number(entity.battleData?.get('totalShield')) || 0,
+                        totalControl: Number(entity.battleData?.get('totalControl')) || 0,
                         damagePercent: 0,
                         damageTakenPercent: 0,
                         maxHitPercent: 0,
                         manaPercent: 0,
-                        healPercent: 0
+                        healPercent: 0,
+                        shieldPercent: 0,
+                        controlPercent: 0
                     };
                     
                     team.totals.damage += stats.totalDamage;
@@ -222,6 +242,8 @@
                     team.totals.maxHit = Math.max(team.totals.maxHit, stats.maxHit);
                     team.totals.mana += stats.manaUsed;
                     team.totals.heal += stats.totalHeal;
+                    team.totals.shield += stats.totalShield;
+                    team.totals.control += stats.totalControl;
                     
                     team.units.push(stats);
                 });
@@ -233,6 +255,8 @@
                         unit.maxHitPercent = team.totals.maxHit > 0 ? (unit.maxHit / team.totals.maxHit * 100).toFixed(1) : '0.0';
                         unit.manaPercent = team.totals.mana > 0 ? (unit.manaUsed / team.totals.mana * 100).toFixed(1) : '0.0';
                         unit.healPercent = team.totals.heal > 0 ? (unit.totalHeal / team.totals.heal * 100).toFixed(1) : '0.0';
+                        unit.shieldPercent = team.totals.shield > 0 ? (unit.totalShield / team.totals.shield * 100).toFixed(1) : '0.0';
+                        unit.controlPercent = team.totals.control > 0 ? (unit.totalControl / team.totals.control * 100).toFixed(1) : '0.0';
                     });
                     this.$set(this.teamStats, teamIndex, { units: team.units });
                 });
@@ -703,6 +727,14 @@
     
     .heal-fill {
         background: linear-gradient(90deg, #52c41a, #faad14);
+    }
+    
+    .shield-fill {
+        background: linear-gradient(90deg, #13c2c2, #faad14);
+    }
+    
+    .control-fill {
+        background: linear-gradient(90deg, #722ed1, #faad14);
     }
     
     .no-data {

@@ -14,7 +14,7 @@ import {bundo_seika_skill1, bundo_seika_skill2, bundo_seika_skill3} from './d/bu
 import {ishi_to_meisei_skill1, ishi_to_meisei_skill2, ishi_to_meisei_skill3, ishiToMeiseiAI} from './d/ishi-to-meisei';
 import {tsuyama_mutsuki_skill1, tsuyama_mutsuki_skill2, tsuyama_mutsuki_skill3} from './d/tsuyama-mutsuki';
 import {murohashi_hiroko_skill1, murohashi_hiroko_skill2, murohashi_hiroko_skill3} from './d/murohashi-hiroko';
-import {sugi_no_ayumu_skill1, sugi_no_ayumu_skill2, sugi_no_ayumu_skill3} from './d/sugi-no-ayumu';
+import {sugi_no_ayumu_skill1, sugi_no_ayumu_skill2, sugi_no_ayumu_skill3} from './c/sugi-no-ayumu';
 import {yoshizume_sakurako_skill1, yoshizume_sakurako_skill2, yoshizume_sakurako_skill3} from './d/yoshizume-sakurako';
 import {kadomatsu_yoko_skill1, kadomatsu_yoko_skill2, kadomatsu_yoko_skill3} from './d/kadomatsu-yoko';
 import {suga_kyotaro_skill1, suga_kyotaro_skill2, suga_kyotaro_skill3} from './d/suga-kyotaro';
@@ -28,6 +28,11 @@ import {honnai_naruka_skill1, honnai_naruka_skill2, honnai_naruka_skill3} from '
 import {fukabori_sumiyo_skill1, fukabori_sumiyo_skill2, fukabori_sumiyo_skill3} from './c/fukabori-sumiyo';
 import {bonkohara_mio_skill1, bonkohara_mio_skill2, bonkohara_mio_skill3} from './c/bonkohara-mio';
 import {utsuki_tamako_skill1, utsuki_tamako_skill2, utsuki_tamako_skill3} from './c/utsuki-tamako';
+import {iwadate_yoko_skill1, iwadate_yoko_skill2, iwadate_yoko_skill3} from './c/iwadate-yoko';
+import {ido_sumiko_skill1, ido_sumiko_skill2, ido_sumiko_skill3, idoSumikoAI} from './c/ido-sumiko';
+import {mizumura_shiori_skill1, mizumura_shiori_skill2, mizumura_shiori_skill3, mizumuraShioriAI} from './c/mizumura-shiori';
+import {karisume_tomoe_skill1, karisume_tomoe_skill2, karisume_tomoe_skill3} from './c/karisume-tomoe';
+import {asami_hanako_skill1, asami_hanako_skill2, asami_hanako_skill3} from './c/asami-hanako';
 import {AI} from "../entity";
 
 // SSR角色技能
@@ -242,6 +247,36 @@ HERO('宇津木玉子', [
     utsuki_tamako_skill1,
     utsuki_tamako_skill2,
     utsuki_tamako_skill3,
+]);
+
+HERO('岩馆摇杏', [
+    iwadate_yoko_skill1,
+    iwadate_yoko_skill2,
+    iwadate_yoko_skill3,
+]);
+
+HERO('依藤澄子', [
+    ido_sumiko_skill1,
+    ido_sumiko_skill2,
+    ido_sumiko_skill3,
+], idoSumikoAI);
+
+HERO('水村史织', [
+    mizumura_shiori_skill1,
+    mizumura_shiori_skill2,
+    mizumura_shiori_skill3,
+], mizumuraShioriAI);
+
+HERO('狩宿巴', [
+    karisume_tomoe_skill1,
+    karisume_tomoe_skill2,
+    karisume_tomoe_skill3,
+]);
+
+HERO('浅见花子', [
+    asami_hanako_skill1,
+    asami_hanako_skill2,
+    asami_hanako_skill3,
 ]);
 
 // SSR阶选手

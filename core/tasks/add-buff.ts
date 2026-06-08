@@ -2,7 +2,7 @@
  * 添加Buff任务处理器
  * 负责处理Buff的添加逻辑，包括命中计算、抵抗判定等
  */
-import {Battle, BattleProperties, BuffParams, EventCodes, Reasons} from "../index";
+import {Battle, BattleProperties, BuffParams, Control, EventCodes, Reasons} from "../index";
 import Buff from "../buff";
 
 /**
@@ -108,6 +108,25 @@ export default function addBuffProcessor(battle: Battle, data: AddBuffProcessing
             
             // 添加Buff到战斗中
             battle.buffs.push(buff);
+            
+            // 统计护盾量和控制次数
+            if (source) {
+                // 统计护盾量
+                if (buff.shield && buff.shield > 0) {
+                    const currentShield = Number(source.battleData.get('totalShield')) || 0;
+                    source.battleData.set('totalShield', String(currentShield + buff.shield));
+                }
+                
+                // 统计控制次数（只统计施加给敌方的控制效果，不包括普通减益效果）
+                // 控制效果：眩晕、冰冻、沉默、混乱等限制目标行动的效果
+                if (target && source.teamId !== target.teamId) {
+                    const isControl = buff.control != null || buff.hasParam(BuffParams.CONTROL);
+                    if (isControl) {
+                        const currentControl = Number(source.battleData.get('totalControl')) || 0;
+                        source.battleData.set('totalControl', String(currentControl + 1));
+                    }
+                }
+            }
             
             // 添加Buff到待合并日志（而不是直接输出）
             const targetName = target ? target.name : '全局';

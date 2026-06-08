@@ -162,7 +162,7 @@ export const honnai_naruka_skill3: Skill = {
     hide: true,
     limited: true,
     target: SkillTarget.ENEMY,
-    text: '【限定技】当自身生命值低于20%时可使用，整场战斗仅限一次。对全体敌方目标造成攻击力150%的真实伤害（每有1层祈愿防御或祈愿进攻，伤害额外增加1%），造成的伤害转化成护盾给予自身。',
+    text: '【限定技】当自身生命值低于25%时可使用，整场战斗仅限一次。对全体敌方目标造成攻击力150%的真实伤害，造成的伤害转化成护盾给予自身（持续2回合）。',
     use(battle: Battle, sourceId: number, selectedId: number) {
         const source = battle.getEntity(sourceId);
         if (!source) return;
@@ -175,14 +175,10 @@ export const honnai_naruka_skill3: Skill = {
         
         const enemies = battle.getTeamEntities(selected.teamId).filter(e => !e.dead);
         
-        const defenseStacks = parseInt(source.getBattleData(QIYUAN_DEFENSE_STACKS_KEY) || '0', 10);
-        const attackStacks = parseInt(source.getBattleData(QIYUAN_ATTACK_STACKS_KEY) || '0', 10);
-        const totalStacks = defenseStacks + attackStacks;
+        // 固定150%伤害倍率
+        const totalRate = 1.5;
         
-        const extraRate = totalStacks * 0.01;
-        const totalRate = 1.5 + extraRate;
-        
-        battle.log(`【${source.name}】使用【最终祈愿】，祈愿层数${totalStacks}层，伤害倍率${(totalRate * 100).toFixed(0)}%`);
+        battle.log(`【${source.name}】使用【最终祈愿】，伤害倍率150%`);
         
         let totalDamage = 0;
         const atk = battle.getComputedProperty(sourceId, BattleProperties.ATK);
@@ -211,12 +207,11 @@ export const honnai_naruka_skill3: Skill = {
                 .end();
             battle.actionAddBuff(shieldBuff, Reasons.SKILL);
             
-            battle.log(`【${source.name}】获得护盾，护盾值：${totalDamage}`);
-            battle.addEventLog('skill', `【${source.name}】使用限定技【最终祈愿】，对全体敌方造成${(totalRate * 100).toFixed(0)}%攻击力的真实伤害，获得${totalDamage}点护盾！`, {
+            battle.log(`【${source.name}】获得护盾，护盾值：${totalDamage}，持续2回合`);
+            battle.addEventLog('skill', `【${source.name}】使用限定技【最终祈愿】，对全体敌方造成150%攻击力的真实伤害，获得${totalDamage}点护盾（持续2回合）！`, {
                 sourceId: sourceId,
                 totalDamage: totalDamage,
-                shieldValue: totalDamage,
-                totalStacks: totalStacks
+                shieldValue: totalDamage
             });
         }
     },
@@ -234,7 +229,8 @@ export const honnai_naruka_skill3: Skill = {
                 const maxHp = battle.getComputedProperty(data.skillOwnerId, BattleProperties.MAX_HP);
                 const hpPercent = source.hp / maxHp;
                 
-                if (hpPercent < 0.2) {
+                // 生命值低于25%时可使用
+                if (hpPercent < 0.25) {
                     source.setData('final_prayer_available', 'true');
                 } else {
                     source.setData('final_prayer_available', 'false');

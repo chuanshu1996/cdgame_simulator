@@ -151,9 +151,9 @@ export default class Battle {
         this.fieldSize = 0;
         this.battleId = Date.now() + Math.floor(Math.random() * 10000); // 生成唯一的战斗ID
 
-        // 初始化fields数组，预填充0
-        this.fields[0] = new Array(8).fill(0);
-        this.fields[1] = new Array(8).fill(0);
+        // 初始化fields数组，预填充0（位置0-8：主力0-5，替补6，应援7，召唤位8）
+        this.fields[0] = new Array(9).fill(0);
+        this.fields[1] = new Array(9).fill(0);
 
         // 计算每个队伍的数据起始索引
         let team0Count = 0;
@@ -974,8 +974,8 @@ export default class Battle {
             return;
         }
 
-        // 将召唤物添加到队伍的第7个位置（索引6）
-        const summonPosition = 6;
+        // 将召唤物添加到队伍的召唤位（索引8）
+        const summonPosition = 8;
         if (this.fields[teamId].length <= summonPosition) {
             // 扩展数组以容纳召唤物
             while (this.fields[teamId].length <= summonPosition) {
@@ -992,9 +992,14 @@ export default class Battle {
             }
         }
 
+        // 设置召唤物的队伍ID
+        entity.setTeam(teamId);
+        
         // 放置新的召唤物
         this.fields[teamId][summonPosition] = entity.entityId;
         this.entities.set(entity.entityId, entity);
+        
+        this.log(`召唤物【${entity.name}】已添加到队伍${teamId}的召唤位（位置8）`);
     }
 
     /**
@@ -1008,8 +1013,8 @@ export default class Battle {
             return undefined;
         }
 
-        // 召唤物位置是第7个位置（索引6）
-        const summonPosition = 6;
+        // 召唤物位置是召唤位（索引8）
+        const summonPosition = 8;
         if (this.fields[teamId].length <= summonPosition) {
             return undefined;
         }
@@ -1019,7 +1024,12 @@ export default class Battle {
             return undefined;
         }
 
-        return this.entities.get(entityId);
+        const entity = this.entities.get(entityId);
+        // 检查是否是真正的召唤物（有summonToken属性）
+        if (entity && entity.summonToken) {
+            return entity;
+        }
+        return undefined;
     }
 
     /**
@@ -1032,14 +1042,15 @@ export default class Battle {
             return;
         }
 
-        // 召唤物位置是第7个位置（索引6）
-        const summonPosition = 6;
+        // 召唤物位置是召唤位（索引8）
+        const summonPosition = 8;
         if (this.fields[teamId].length > summonPosition) {
             const entityId = this.fields[teamId][summonPosition];
             if (entityId > 0) {
                 const entity = this.entities.get(entityId);
-                if (entity) {
+                if (entity && entity.summonToken) {
                     entity.dead = true;
+                    this.log(`召唤物【${entity.name}】已从队伍${teamId}移除`);
                 }
             }
             this.fields[teamId][summonPosition] = 0;

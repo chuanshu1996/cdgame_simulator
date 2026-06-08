@@ -268,6 +268,18 @@ export default function turnProcessor(battle: Battle, data: TurnProcessing, step
                                 switch (s.target) {
                                     case SkillTarget.ENEMY:
                                         targets = battle.getEnemies(currentEntity.entityId).map(e => e.entityId);
+                                        // 处理"低存在感"：单体攻击无法选中有此标记的角色
+                                        // 如果目标列表大于1，过滤掉有"低存在感"标记的角色
+                                        if (targets.length > 1) {
+                                            targets = targets.filter(tid => {
+                                                const targetEntity = battle.getEntity(tid);
+                                                return targetEntity.getBattleData('低存在感') !== 'true';
+                                            });
+                                            // 如果过滤后没有目标，则保留原始目标（避免无法行动）
+                                            if (targets.length === 0) {
+                                                targets = battle.getEnemies(currentEntity.entityId).map(e => e.entityId);
+                                            }
+                                        }
                                         break;
                                     case SkillTarget.SELF:
                                         targets = [currentEntity.entityId];

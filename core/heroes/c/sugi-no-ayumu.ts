@@ -11,8 +11,10 @@ import {
     Skill,
     BuffParams,
     Entity,
+    Healing,
 } from '../..';
 import {SkillTarget} from '../../skill';
+import {JudgeFlagManager} from '../../judge-flag';
 
 /**
  * 杉乃步技能1：女仆补给
@@ -30,35 +32,32 @@ export const sugi_no_ayumu_skill1: Skill = {
         const source = battle.getEntity(sourceId);
         if (!source) return;
         
-        // 计算回复量：自身10%生命值
-        const healAmount = battle.getComputedProperty(sourceId, BattleProperties.MAX_HP) * 0.1;
-        
         // 找到生命值最低的队友
-        let lowestHpEntity: Entity | null = null;
+        const teamEntities = battle.getTeamEntities(source.teamId);
+        let lowestHpEntity: Entity | undefined = undefined;
         let lowestHpPercent = 1;
         
-        battle.getTeamEntities(source.teamId).forEach(entity => {
-            if (entity.dead) return;
+        for (const entity of teamEntities) {
+            if (entity.dead) continue;
             const hpPercent = entity.hp / battle.getComputedProperty(entity.entityId, BattleProperties.MAX_HP);
             if (hpPercent < lowestHpPercent) {
                 lowestHpPercent = hpPercent;
                 lowestHpEntity = entity;
             }
-        });
+        }
         
         if (lowestHpEntity) {
-            // 回复生命值
-            const entity = lowestHpEntity as any;
-            const newHp = Math.min(entity.hp + healAmount, battle.getComputedProperty(entity.entityId, BattleProperties.MAX_HP));
-            const actualHeal = newHp - entity.hp;
-            entity.hp = newHp;
-            
-            battle.log(`【${source.name}】使用【女仆补给】为【${entity.name}】回复${Math.round(actualHeal)}点生命`);
-            battle.addEventLog('skill', `【${source.name}】使用【女仆补给】为【${entity.name}】回复${Math.round(actualHeal)}点生命`, {
-                sourceId: sourceId,
-                targetId: entity.entityId,
-                heal: actualHeal
-            });
+            // 使用actionHeal来记录治疗量
+            // Healing.build(sourceId, targetId) - sourceId是治疗来源，targetId是治疗目标
+            // 使用自定义base函数获取来源（杉乃步）的最大生命值，因为技能描述是"回复自身10%最大生命值"
+            battle.actionHeal(
+                Healing.build(sourceId, lowestHpEntity.entityId)
+                    .base((battle, sourceId, targetId) => battle.getComputedProperty(sourceId, BattleProperties.MAX_HP))
+                    .rate(0.1)
+                    .shouldComputeCri()
+                    .skillName('女仆补给')
+                    .end()
+            );
         }
     },
 };
@@ -80,14 +79,14 @@ function buildFakeMoonBuff(sourceId: number, targetId: number): Buff {
 /**
  * 杉乃步技能2：虚假之月
  * 被动技能
- * 行动8回合后，获得【虚假之衣】buff
+ * 裁判旗行动8回合后，获得【虚假之衣】buff
  */
 export const sugi_no_ayumu_skill2: Skill = {
     no: 2,
     name: '虚假之月',
     passive: true,
     cost: 0,
-    text: '被动技能。行动8回合后，获得【虚假之衣】buff，持续至战斗结束。【虚假之衣】：免疫减益效果和控制效果，攻击时忽略敌方100点防御。',
+    text: '被动技能。裁判旗行动8回合后，获得【虚假之衣】buff，持续至战斗结束。【虚假之衣】：免疫减益效果和控制效果，攻击时忽略敌方100点防御。',
     handlers: [
         {
             handle(battle: Battle, data: RealEventData) {
@@ -96,17 +95,30 @@ export const sugi_no_ayumu_skill2: Skill = {
                 const entity = battle.getEntity(data.skillOwnerId);
                 if (!entity) return -1;
                 
-                // 获取当前行动次数
-                const actionCount = entity.getBattleData('sugi_action_count') || '0';
-                const count = parseInt(actionCount, 10) + 1;
-                entity.setData('sugi_action_count', String(count));
+                // 获取裁判旗行动次数
+                const judgeFlag = JudgeFlagManager.getInstance().getJudgeFlag(battle);
+                const status = judgeFlag.getStatus();
+                const judgeKingActionCount = status.judgeKingActionCount;
                 
-                // 每行动8回合触发效果
-                if (count % 8 === 0) {
-                    // 获得虚假之衣buff
-                    const buff = buildFakeMoonBuff(data.skillOwnerId, data.skillOwnerId);
-                    battle.actionAddBuff(buff, Reasons.SKILL);
-                    battle.log(`【${entity.name}】获得【虚假之衣】buff`);
+                // 记录当前裁判旗行动次数
+                const lastCount = entity.getBattleData('sugi_judge_flag_count') || '0';
+                const lastCountNum = parseInt(lastCount, 10);
+                
+                // 如果裁判旗行动次数增加了，检查是否达到8次
+                if (judgeKingActionCount > lastCountNum) {
+                    entity.setData('sugi_judge_flag_count', String(judgeKingActionCount));
+                    
+                    // 裁判旗行动8回合后触发效果
+                    if (judgeKingActionCount >= 8) {
+                        // 检查是否已经获得过虚假之衣buff
+                        const existingBuff = battle.filterBuffByName(data.skillOwnerId, '虚假之衣');
+                        if (existingBuff.length === 0) {
+                            // 获得虚假之衣buff
+                            const buff = buildFakeMoonBuff(data.skillOwnerId, data.skillOwnerId);
+                            battle.actionAddBuff(buff, Reasons.SKILL);
+                            battle.log(`【${entity.name}】在裁判旗行动${judgeKingActionCount}回合后获得【虚假之衣】buff`);
+                        }
+                    }
                 }
                 
                 return -1;

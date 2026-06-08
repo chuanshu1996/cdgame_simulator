@@ -198,6 +198,37 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- 召唤物显示区域 -->
+            <div class="summon-field" v-if="data.summons && data.summons[teamId - 1] && data.summons[teamId - 1].summonToken">
+                <div class="summon-card-wrap"
+                     :class="{
+                         dead: data.summons[teamId - 1].dead,
+                         'team0': teamId === 1,
+                         'team1': teamId === 2
+                     }"
+                >
+                    <div class="summon-info">
+                        <div class="summon-label">召唤物</div>
+                        <div class="summon-name">{{ data.summons[teamId - 1].name }}</div>
+                        <div v-if="!data.summons[teamId - 1].dead" class="summon-hp">
+                            {{ Math.round(data.summons[teamId - 1].hp) }}/{{ Math.round(data.summons[teamId - 1].maxHp) }}
+                        </div>
+                        <div v-if="!data.summons[teamId - 1].dead" class="hp-bar">
+                            <a-progress size="small" 
+                                :percent="Math.ceil(data.summons[teamId - 1].hp / data.summons[teamId - 1].maxHp * 100)"
+                                :showInfo="false"
+                                status="exception"/>
+                        </div>
+                    </div>
+                    <div class="summon-buffs" v-if="data.summons[teamId - 1].buffs && data.summons[teamId - 1].buffs.length > 0">
+                        <div v-for="buff in data.summons[teamId - 1].buffs" :key="buff.buffId" class="buff-item">
+                            <a-tag>{{ buff.name }} {{ buff.count > 1 ? buff.count : '' }}</a-tag>
+                            <span v-if="buff.countDown !== undefined" class="buff-countdown">{{ buff.countDown }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="battle-log-container" ref="logContainer">
@@ -1123,6 +1154,98 @@
                 }
             }
         }
+        
+        // 召唤物显示样式
+        .summon-field {
+            margin-top: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            
+            .summon-card-wrap {
+                width: 100%;
+                background-color: #fefdff;
+                padding: 12px;
+                border-radius: 4px;
+                position: relative;
+                box-sizing: border-box;
+                overflow: hidden;
+                
+                &.team0 {
+                    border-left: 4px solid rgb(220, 53, 69);
+                    background: linear-gradient(90deg, rgba(220, 53, 69, 0.1) 0%, #fefdff 100%);
+                }
+                
+                &.team1 {
+                    border-left: 4px solid rgb(0, 123, 255);
+                    background: linear-gradient(90deg, rgba(0, 123, 255, 0.1) 0%, #fefdff 100%);
+                }
+                
+                &.dead {
+                    opacity: 0.3;
+                }
+                
+                .summon-info {
+                    display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 12px;
+                    
+                    .summon-label {
+                        font-size: 11px;
+                        color: #666;
+                        background-color: #f0f0f0;
+                        padding: 2px 6px;
+                        border-radius: 3px;
+                    }
+                    
+                    .summon-name {
+                        font-weight: bold;
+                        font-size: 13px;
+                        color: #333;
+                    }
+                    
+                    .summon-hp {
+                        font-size: 12px;
+                        color: #666;
+                    }
+                    
+                    .hp-bar {
+                        flex: 1;
+                        max-width: 200px;
+                    }
+                }
+                
+                .summon-buffs {
+                    margin-top: 8px;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 4px;
+                    
+                    .buff-item {
+                        position: relative;
+                        
+                        .buff-countdown {
+                            position: absolute;
+                            top: -6px;
+                            right: -6px;
+                            min-width: 16px;
+                            height: 16px;
+                            padding: 0 4px;
+                            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+                            color: #fff;
+                            font-size: 11px;
+                            font-weight: bold;
+                            border-radius: 8px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+                            z-index: 1;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     .buff-detail-modal {
@@ -1705,6 +1828,48 @@
                     }
                 }
             }
+            
+            .summon-field {
+                margin-top: 6px;
+                
+                .summon-card-wrap {
+                    padding: 6px;
+                    
+                    .summon-info {
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 4px;
+                        
+                        .summon-label {
+                            font-size: 9px;
+                            padding: 1px 4px;
+                        }
+                        
+                        .summon-name {
+                            font-size: 10px;
+                        }
+                        
+                        .summon-hp {
+                            font-size: 9px;
+                        }
+                        
+                        .hp-bar {
+                            max-width: 100px;
+                        }
+                    }
+                    
+                    .summon-buffs {
+                        margin-top: 4px;
+                        justify-content: center;
+                        
+                        .ant-tag {
+                            font-size: 9px;
+                            padding: 0 4px;
+                            margin: 1px;
+                        }
+                    }
+                }
+            }
         }
 
         .battle-log-container {
@@ -1953,6 +2118,28 @@
                     name: '',
                 }))
             ],
+            summons: [
+                {
+                    entityId: 0,
+                    hp: 0,
+                    maxHp: 0,
+                    dead: true,
+                    no: 99,
+                    buffs: [],
+                    name: '',
+                    summonToken: false,
+                },
+                {
+                    entityId: 0,
+                    hp: 0,
+                    maxHp: 0,
+                    dead: true,
+                    no: 99,
+                    buffs: [],
+                    name: '',
+                    summonToken: false,
+                }
+            ],
             attack: {},
             skills: [],
             watiInput: false,
@@ -2051,6 +2238,62 @@
                         no: entity.no,
                         name: entity.name,
                         buffs,
+                    }
+                }
+            }
+            
+            // 处理召唤物（位置8）
+            const summonPosition = 8;
+            if (battle.fields[teamId].length > summonPosition) {
+                const summonId = battle.fields[teamId][summonPosition];
+                if (summonId > 0) {
+                    const summonEntity = battle.getEntity(summonId);
+                    if (summonEntity && summonEntity.summonToken) {
+                        const buffsTemp = battle.buffs
+                            .filter(b => b.ownerId === summonEntity.entityId)
+                            .map(b => ({
+                                name: b.name,
+                                icon: b.icon || '',
+                                countDown: b.countDown,
+                                effects: b.effects,
+                                params: b.params,
+                                shield: b.shield,
+                                probability: b.probability,
+                                control: b.control,
+                                maxCount: b.maxCount
+                            }));
+                        const buffs = [];
+                        for (const b of buffsTemp) {
+                            const bb = buffs.find(bbb => bbb.name === b.name);
+                            if (bb) {
+                                bb.count++;
+                            } else {
+                                buffs.push({
+                                    name: b.name,
+                                    icon: b.icon,
+                                    buffId: b.buffId,
+                                    count: 1,
+                                    countDown: b.countDown,
+                                    effects: b.effects,
+                                    params: b.params,
+                                    shield: b.shield,
+                                    probability: b.probability,
+                                    control: b.control,
+                                    maxCount: b.maxCount
+                                });
+                            }
+                        }
+                        
+                        dump.summons[teamId] = {
+                            entityId: summonEntity.entityId,
+                            hp: summonEntity.hp,
+                            maxHp: battle.getComputedProperty(summonEntity.entityId, BattleProperties.MAX_HP),
+                            dead: summonEntity.dead,
+                            no: summonEntity.no,
+                            name: summonEntity.name,
+                            buffs,
+                            summonToken: summonEntity.summonToken,
+                        };
                     }
                 }
             }

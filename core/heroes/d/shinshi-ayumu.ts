@@ -193,14 +193,15 @@ export const shinshi_ayumu_skill3: Skill = {
                 const reason = removeData.reason;
                 if (reason === Reasons.TIME_OUT) {
                     // 时间到了自然消失，回复5%生命
-                    const maxHp = battle.getComputedProperty(data.eventId, BattleProperties.MAX_HP);
-                    const healAmount = Math.floor(maxHp * 0.05);
-                    const healing = Healing.build(data.eventId, data.eventId)
-                        .base(BattleProperties.MAX_HP)
+                    // sourceId设为进士步(skillOwnerId)，这样治疗量统计到进士步身上
+                    const healing = Healing.build(data.skillOwnerId, data.eventId)
+                        .base((battle, sourceId, targetId) => battle.getComputedProperty(targetId, BattleProperties.MAX_HP))
                         .rate(0.05)
                         .skillName('陪伴')
                         .end();
                     battle.actionHeal(healing);
+                    const maxHp = battle.getComputedProperty(data.eventId, BattleProperties.MAX_HP);
+                    const healAmount = Math.floor(maxHp * 0.05);
                     battle.log(`【${entity.name}】陪伴buff自然消失，回复${healAmount}点生命`);
                     battle.addEventLog('skill', `【${entity.name}】的【陪伴】buff自然消失，回复${healAmount}点生命`, {
                         entityId: data.eventId,

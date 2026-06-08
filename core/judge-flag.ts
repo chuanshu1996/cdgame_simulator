@@ -96,7 +96,7 @@ export class JudgeFlagManager {
      * 获取指定战斗的裁判旗
      */
     getJudgeFlag(battle: Battle): JudgeFlag {
-        const battleId = battle['battleId'] || this.generateBattleId(battle);
+        const battleId = battle.battleId; // 直接访问battleId属性
         if (!this.judgeFlags.has(battleId)) {
             this.judgeFlags.set(battleId, new JudgeFlag());
         }
@@ -104,17 +104,17 @@ export class JudgeFlagManager {
     }
     
     /**
-     * 为战斗生成唯一ID
+     * 为战斗生成唯一ID（已废弃，battle构造函数已设置battleId）
      */
     private generateBattleId(battle: Battle): number {
-        return battle['battleId'] || Date.now() + Math.random();
+        return battle.battleId || Date.now() + Math.random();
     }
     
     /**
      * 清理指定战斗的裁判旗
      */
     clearJudgeFlag(battle: Battle): void {
-        const battleId = battle['battleId'] || this.generateBattleId(battle);
+        const battleId = battle.battleId; // 直接访问battleId属性
         this.judgeFlags.delete(battleId);
     }
 }
