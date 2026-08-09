@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+cdn/
+
+# Local env
+.env.local
+.env.*.local
+
+# Temp / OS files
+.DS_Store
+*.lnk
+~$*
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.suo
+*.sw?
+
+# Craft working files
+src_old/
+.codebuddy/
