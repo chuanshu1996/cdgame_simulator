@@ -1,0 +1,186 @@
+import {
+    Attack,
+    BattleProperties,
+    Buff,
+    Battle,
+    EffectTypes,
+    EventCodes,
+    EventRange,
+    RealEventData,
+    Reasons,
+    Skill,
+    BuffParams,
+    Entity,
+    Healing,
+} from '../..';
+import {SkillTarget} from '../../skill';
+import {JudgeFlagManager} from '../../judge-flag';
+
+/**
+ * 杉乃步技能1：女仆补给
+ * 主动技能，消耗0点能量
+ * 放弃攻击，转而为生命值最低的队友回复自身10%生命值的生命
+ */
+export const sugi_no_ayumu_skill1: Skill = {
+    no: 1,
+    name: '女仆补给',
+    passive: false,
+    cost: 0,
+    target: SkillTarget.TEAM,
+    text: '放弃攻击，为生命值百分比最低的队友回复相当于自身10%最大生命值的生命。',
+    use(battle: Battle, sourceId: number, selectedId: number) {
+        const source = battle.getEntity(sourceId);
+        if (!source) return;
+        
+        // 找到生命值最低的队友
+        const teamEntities = battle.getTeamEntities(source.teamId);
+        let lowestHpEntity: Entity | undefined = undefined;
+        let lowestHpPercent = 1;
+        
+        for (const entity of teamEntities) {
+            if (entity.dead) continue;
+            const hpPercent = entity.hp / battle.getComputedProperty(entity.entityId, BattleProperties.MAX_HP);
+            if (hpPercent < lowestHpPercent) {
+                lowestHpPercent = hpPercent;
+                lowestHpEntity = entity;
+            }
+        }
+        
+        if (lowestHpEntity) {
+            // 使用actionHeal来记录治疗量
+            // Healing.build(sourceId, targetId) - sourceId是治疗来源，targetId是治疗目标
+            // 使用自定义base函数获取来源（杉乃步）的最大生命值，因为技能描述是"回复自身10%最大生命值"
+            battle.actionHeal(
+                Healing.build(sourceId, lowestHpEntity.entityId)
+                    .base((battle, sourceId, targetId) => battle.getComputedProperty(sourceId, BattleProperties.MAX_HP))
+                    .rate(0.1)
+                    .shouldComputeCri()
+                    .skillName('女仆补给')
+                    .end()
+            );
+        }
+    },
+};
+
+/**
+ * 构建虚假之衣buff
+ */
+function buildFakeMoonBuff(sourceId: number, targetId: number): Buff {
+    return Buff.build(sourceId, targetId)
+        .name('虚假之衣', 1)
+        .noRemove() // 持续到游戏结束
+        .ruleControlImmune() // 免疫控制效果
+        .ruleDebuffImmune() // 免疫减益效果
+        .buffAP(BattleProperties.DEF_NEG, EffectTypes.FIXED, 100) // 忽略敌方100点防御
+        .buff()
+        .end();
+}
+
+/**
+ * 杉乃步技能2：虚假之月
+ * 被动技能
+ * 裁判旗行动8回合后，获得【虚假之衣】buff
+ */
+export const sugi_no_ayumu_skill2: Skill = {
+    no: 2,
+    name: '虚假之月',
+    passive: true,
+    cost: 0,
+    text: '被动技能。当裁判旗行动至第8回合后，获得【虚假之衣】buff，持续至战斗结束。【虚假之衣】：免疫减益效果与控制效果，攻击时无视目标100点防御力。',
+    handlers: [
+        {
+            handle(battle: Battle, data: RealEventData) {
+                if (!data.skillOwnerId) return -1;
+                
+                const entity = battle.getEntity(data.skillOwnerId);
+                if (!entity) return -1;
+                
+                // 获取裁判旗行动次数
+                const judgeFlag = JudgeFlagManager.getInstance().getJudgeFlag(battle);
+                const status = judgeFlag.getStatus();
+                const judgeKingActionCount = status.judgeKingActionCount;
+                
+                // 记录当前裁判旗行动次数
+                const lastCount = entity.getBattleData('sugi_judge_flag_count') || '0';
+                const lastCountNum = parseInt(lastCount, 10);
+                
+                // 如果裁判旗行动次数增加了，检查是否达到8次
+                if (judgeKingActionCount > lastCountNum) {
+                    entity.setData('sugi_judge_flag_count', String(judgeKingActionCount));
+                    
+                    // 裁判旗行动8回合后触发效果
+                    if (judgeKingActionCount >= 8) {
+                        // 检查是否已经获得过虚假之衣buff
+                        const existingBuff = battle.filterBuffByName(data.skillOwnerId, '虚假之衣');
+                        if (existingBuff.length === 0) {
+                            // 获得虚假之衣buff
+                            const buff = buildFakeMoonBuff(data.skillOwnerId, data.skillOwnerId);
+                            battle.actionAddBuff(buff, Reasons.SKILL);
+                            battle.log(`【${entity.name}】在裁判旗行动${judgeKingActionCount}回合后获得【虚假之衣】buff`);
+                        }
+                    }
+                }
+                
+                return -1;
+            },
+            code: EventCodes.TURN_START, // 回合开始事件
+            range: EventRange.SELF,
+            priority: 50,
+            passive: true,
+            name: '虚假之月',
+        },
+    ],
+};
+
+/**
+ * 杉乃步技能3：大扫除
+ * 主动技能，消耗3点能量
+ * 对全体敌方造成攻击力130%的伤害，并且有50%概率（可被效果命中加成）清除对方一个增益效果
+ */
+export const sugi_no_ayumu_skill3: Skill = {
+    no: 3,
+    name: '大扫除',
+    passive: false,
+    cost: 3,
+    target: SkillTarget.ENEMY,
+    text: '对敌方全体造成攻击力130%的伤害，并有50%基础概率（受效果命中加成）驱散目标1个增益效果。',
+    use(battle: Battle, sourceId: number, selectedId: number) {
+        const source = battle.getEntity(sourceId);
+        if (!source) return;
+        
+        // 获取敌方所有目标
+        const enemies = battle.getTeamEntities(1 - source.teamId).filter(e => !e.dead);
+        
+        enemies.forEach(enemy => {
+            battle.actionAttack(
+                Attack.build(enemy.entityId, sourceId)
+                    .rate(1.3)
+                    .shouldComputeCri()
+                    .single()
+                    .skill('大扫除')
+                    .end()
+            );
+            
+            // 50%概率清除对方一个增益效果
+            const baseProbability = 0.5;
+            const effectHit = battle.getComputedProperty(sourceId, BattleProperties.EFT_HIT);
+            const finalProbability = baseProbability * (1 + effectHit);
+            
+            if (battle.testHit(finalProbability)) {
+                // 查找敌方的增益buff
+                const buffs = battle.buffs.filter(buff => 
+                    buff.ownerId === enemy.entityId && 
+                    buff.params.includes(BuffParams.BUFF) && 
+                    !buff.params.includes(BuffParams.DEBUFF)
+                );
+                
+                if (buffs.length > 0) {
+                    // 随机选择一个增益buff并移除
+                    const buffToRemove = battle.getRandomOne(buffs);
+                    battle.actionRemoveBuff(buffToRemove, Reasons.SKILL);
+                    battle.log(`【${source.name}】的【大扫除】清除了【${enemy.name}】的【${buffToRemove.name}】buff`);
+                }
+            }
+        });
+    },
+};

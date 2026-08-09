@@ -24,3 +24,17 @@ Thumbs.db
 # Craft working files
 src_old/
 .codebuddy/
+
+# Unused / redundant assets
+photo/
+cdgame_simulator/public/avatar_bak/
+cdgame_simulator/public/buff/
+
+# Local backups / temp files
+_nested_git_backup/
+_cs2.txt
+_tracked.txt
+_st.txt
+_bak.ps1
+_staged.txt
+
