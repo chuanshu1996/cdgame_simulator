@@ -9,7 +9,7 @@ module.exports = {
             },
         },
     },
-    outputDir: 'docs',
+    outputDir: '../docs',
     publicPath: '/cdgame_simulator/',
     chainWebpack: config => {
         // GraphQL Loader
