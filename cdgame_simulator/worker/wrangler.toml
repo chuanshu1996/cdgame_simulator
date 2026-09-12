@@ -8,6 +8,7 @@
 #   npx wrangler pages deploy . --project-name cdgame-api --branch main
 # account_id 由 CI 的 CLOUDFLARE_ACCOUNT_ID 环境变量提供（Pages 配置不支持
 # 在 wrangler.toml 内写 account_id）。
+# 注意：修改本目录（含本文件）会触发 deploy-worker.yml 自动部署。
 
 name = "cdgame-api"
 pages_build_output_dir = "."
