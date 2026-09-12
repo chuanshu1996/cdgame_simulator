@@ -18,7 +18,7 @@ export const menuItems: MenuItem[] = [
     { key: '/hero', icon: 'table', title: '选手列表' },
     { key: '/hero-win-rate', icon: 'trophy', title: '选手胜率', adminOnly: true },
     { key: '/card-win-rate', icon: 'experiment', title: '卡牌胜率测试', adminOnly: true },
-    { key: '/hero-data', icon: 'edit', title: '卡牌属性', adminOnly: true },
+    { key: '/data-sync', icon: 'cloud', title: '数据同步', adminOnly: true },
     { key: '/soul', icon: 'star', title: '御魂图鉴' },
     { key: '/debug', icon: 'build', title: '对战调试(程序员)', hidden: true },
 ];

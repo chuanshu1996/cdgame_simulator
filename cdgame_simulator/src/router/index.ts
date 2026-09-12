@@ -16,6 +16,7 @@ const Rules = () => import('../views/Rules.vue');
 const Record = () => import('../views/Record.vue');
 const MatchRecords = () => import('../views/MatchRecords.vue');
 const HeroData = () => import('../views/HeroData.vue');
+const DataSync = () => import('../views/DataSync.vue');
 
 Vue.use(VueRouter);
 
@@ -113,15 +114,13 @@ const routes = [
             meta: { adminOnly: true },
         },
         {
-            path: '/card-win-rate',
-            name: 'CardWinRate',
-            component: CardWinRate,
+            path: '/data-sync',
+            name: 'DataSync',
+            component: DataSync,
             meta: { adminOnly: true },
         },
-];
-
+    ]
 const router = new VueRouter({
-    mode: 'hash',
     base: process.env.BASE_URL,
     routes,
 });

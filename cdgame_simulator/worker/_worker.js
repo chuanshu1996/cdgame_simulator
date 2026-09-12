@@ -16,15 +16,33 @@
 //   PUT    /api/hero-data/:index     按 index 更新
 //   DELETE /api/hero-data/:index     按 index 删除
 //   GET    /api/hero-data/export     导出 hero-data.ts 文本（供同步回仓库）
+//
+// 快照同步（D1 方案，见 .codebuddy/plans/d1-snapshot-sync-refactor_*.md）：
+//   GET  /api/sync/records           读比赛记录+队伍战绩快照（sync_records 单行）
+//   POST /api/sync/records           全量 REPLACE 覆盖该快照
+//   GET  /api/sync/stats             读胜率统计快照（sync_stats 单行）
+//   POST /api/sync/stats             全量 REPLACE 覆盖该快照
+// 前端「本地优先」：日常读写全在 localStorage，仅管理员手动同步时调用以上接口。
+// 每次同步 = 每表 1 行 REPLACE，写入行数极少，远低于 D1 免费额度（10 万行/天）。
+//
 // 鉴权：Authorization: Bearer <管理密码MD5>，与前端 HeroData.vue 一致。
 //
 // 本文件是唯一后端实现：advanced mode 下 worker 接管全部路由，因此不再需要
-// 静态占位页，非 /api/hero-data 的请求统一返回 JSON 404。
+// 静态占位页，非 /api/* 路径统一返回 JSON 404。
 
 const NUMERIC_FIELDS = ['index', 'atk', 'hp', 'def', 'spd', 'cri', 'cri_dmg', 'eft_hit', 'eft_res', 'show'];
 
 // 管理密码 MD5（与前端 HeroData.vue 的 ADMIN_PASSWORD_HASH 一致）
 const ADMIN_PASSWORD_HASH = '4f323fde03b2d593d6988bb02ab0b7b7';
+
+// 快照同步路由：path -> { 表名, 固定 key }。每表只存一行全量 JSON 快照。
+const SYNC_ROUTES = {
+    '/api/sync/records': { table: 'sync_records', key: 'record_data' },
+    '/api/sync/stats': { table: 'sync_stats', key: 'win_rate' },
+};
+
+// 单次同步快照体积上限（防异常大 payload；正常比赛记录+胜率远小于 1MB）
+const MAX_SYNC_BYTES = 10 * 1024 * 1024;
 
 function corsHeaders(origin) {
     return {
@@ -72,9 +90,32 @@ function validateRows(rows) {
 }
 
 async function ensureSchema(env) {
-    await env.DB.prepare(
-        'CREATE TABLE IF NOT EXISTS hero_data (idx INTEGER PRIMARY KEY, data TEXT NOT NULL)'
-    ).run();
+    await env.DB.batch([
+        env.DB.prepare('CREATE TABLE IF NOT EXISTS hero_data (idx INTEGER PRIMARY KEY, data TEXT NOT NULL)'),
+        env.DB.prepare('CREATE TABLE IF NOT EXISTS sync_records (key TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)'),
+        env.DB.prepare('CREATE TABLE IF NOT EXISTS sync_stats (key TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at INTEGER NOT NULL)'),
+    ]);
+}
+
+async function getAll(env) {
+    const { results } = await env.DB.prepare('SELECT data FROM hero_data ORDER BY idx').all();
+    return results.map(r => JSON.parse(r.data));
+}
+
+// 读取一张快照表的固定 key 行；无数据时返回 { data: null, updated_at: null }
+async function getSyncSnapshot(env, route) {
+    const row = await env.DB.prepare(`SELECT data, updated_at FROM ${route.table} WHERE key = ?`)
+        .bind(route.key).first();
+    if (!row) return { data: null, updated_at: null };
+    return { data: JSON.parse(row.data), updated_at: row.updated_at };
+}
+
+// 全量 REPLACE 覆盖快照（每表恒 1 行，D1 写入计 1 行）
+async function putSyncSnapshot(env, route, body) {
+    const now = Date.now();
+    await env.DB.prepare(`REPLACE INTO ${route.table} (key, data, updated_at) VALUES (?, ?, ?)`)
+        .bind(route.key, JSON.stringify(body), now).run();
+    return now;
 }
 
 async function getAll(env) {
@@ -96,7 +137,8 @@ export default {
             return new Response(null, { status: 204, headers: corsHeaders(origin) });
         }
 
-        if (!path.startsWith('/api/hero-data')) {
+        const syncRoute = SYNC_ROUTES[path];
+        if (!path.startsWith('/api/hero-data') && !syncRoute) {
             return err('Not Found', 404, origin);
         }
 
@@ -107,6 +149,26 @@ export default {
         await ensureSchema(env);
 
         try {
+            // ===== 快照同步接口（/api/sync/records、/api/sync/stats）=====
+            if (syncRoute) {
+                if (request.method === 'GET') {
+                    return json(await getSyncSnapshot(env, syncRoute), 200, origin);
+                }
+                if (request.method === 'POST') {
+                    const body = await request.json().catch(() => null);
+                    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+                        return err('数据格式错误：期望一个 JSON 对象', 400, origin);
+                    }
+                    const size = JSON.stringify(body).length;
+                    if (size > MAX_SYNC_BYTES) {
+                        return err(`快照过大（${(size / 1048576).toFixed(1)} MB），超出单次同步上限`, 413, origin);
+                    }
+                    const updatedAt = await putSyncSnapshot(env, syncRoute, body);
+                    return json({ success: true, updated_at: updatedAt, size }, 200, origin);
+                }
+                return err('Method Not Allowed', 405, origin);
+            }
+
             if (request.method === 'GET') {
                 if (path === '/api/hero-data/export') {
                     const rows = await getAll(env);
