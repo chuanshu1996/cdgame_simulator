@@ -1,0 +1,34 @@
+name: Sync hero-data from D1
+
+# 定时（或手动）从 Cloudflare D1 导出最新卡牌数据，写回仓库并触发 Pages 重建，
+# 使线上模拟器始终使用管理员在线上编辑后的数据。
+on:
+  schedule:
+    - cron: '17 3 * * *'   # 每天 UTC 03:17
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 从 Worker 导出 hero-data.ts
+        env:
+          API_BASE: ${{ vars.VUE_APP_API_BASE }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          curl -fsS -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+            "${API_BASE}/api/hero-data/export" \
+            -o cdgame_simulator/core/fixtures/hero-data.ts
+
+      - name: 提交并推送（触发 deploy.yml 重建 Pages）
+        run: |
+          git config user.email "bot@cdgame.local"
+          git config user.name "cdgame-bot"
+          git add cdgame_simulator/core/fixtures/hero-data.ts
+          git commit -m "chore(hero-data): sync from D1" || echo "无变更，跳过"
+          git push

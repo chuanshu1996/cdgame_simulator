@@ -9,6 +9,14 @@
                 </template>
             </a-empty>
 
+            <a-alert
+                v-else-if="apiUnavailable"
+                type="info"
+                showIcon
+                class="admin-unavailable"
+                message="卡牌属性编辑功能不可用"
+                description="卡牌属性读写依赖后端 API。若此处一直加载失败，说明当前未配置可用的后端：本地可在项目根执行 npm run dev 后通过 http://localhost:8080 使用；线上需部署后端（如 Cloudflare Workers + D1）并把构建变量 VUE_APP_API_BASE 指向其地址（详见部署文档）。"
+            />
             <template v-else>
             <div class="toolbar">
                 <a-input-search
@@ -300,6 +308,10 @@ import * as XLSX from 'xlsx';
 
 const ADMIN_PASSWORD_HASH = '4f323fde03b2d593d6988bb02ab0b7b7';
 
+// 后端 API 基址：默认相对路径（本地 dev 由 Vue CLI 代理到 server.js:3001）。
+// 部署到线上时通过 VUE_APP_API_BASE 指向后端（如 Cloudflare Workers + D1）。
+const API_BASE = process.env.VUE_APP_API_BASE || '';
+
 // 保存请求超时时间（毫秒），避免后端未启动时请求长时间挂起
 const SAVE_TIMEOUT_MS = 15000;
 
@@ -313,6 +325,9 @@ export default {
         return {
             loading: false,
             saving: false,
+            // 当前环境（如 GitHub Pages 静态站点）没有后端接口时置为 true，
+            // 用于展示明确提示而非把后端 404 的 HTML 正文当成错误抛出
+            apiUnavailable: false,
             heroData: [],
             originalData: [],
             searchText: '',
@@ -460,9 +475,13 @@ export default {
     methods: {
         // ========== 数据加载与保存 ==========
         async loadHeroData() {
+            if (this.apiUnavailable) {
+                this.loading = false;
+                return;
+            }
             this.loading = true;
             try {
-                const response = await fetch('/api/hero-data', {
+                const response = await fetch(API_BASE + '/api/hero-data', {
                     headers: { 'Authorization': `Bearer ${ADMIN_PASSWORD_HASH}` },
                 });
                 if (!response.ok) throw new Error(await this.extractError(response));
@@ -470,6 +489,7 @@ export default {
                 this.heroData = data.map(item => ({ ...item }));
                 this.originalData = data.map(item => ({ ...item }));
             } catch (error) {
+                this.apiUnavailable = true;
                 this.$message.error('加载卡牌数据失败: ' + error.message);
             } finally {
                 this.loading = false;
@@ -513,7 +533,10 @@ export default {
             }
             if (response.status === 413) return '数据量超出服务端限制（413），请联系管理员调整上传上限';
             if (response.status === 401) return '登录状态已失效，请重新以管理员身份登录';
-            const snippet = raw.replace(/<[^>]+>/g, '').trim().slice(0, 80);
+            if (response.status === 404) {
+                return '接口不存在（404）：未配置可用的后端 API。请确认已部署后端并将 VUE_APP_API_BASE 指向其地址（参见部署文档）';
+            }
+            const snippet = raw.replace(/<[^>]+>/g, '').replace(/&middot;/g, '·').trim().slice(0, 80);
             return snippet ? `HTTP ${response.status}：${snippet}` : `HTTP ${response.status}`;
         },
 
@@ -600,12 +623,16 @@ export default {
                 return;
             }
 
+            if (this.apiUnavailable) {
+                this.$message.warning('当前环境不支持保存：卡牌属性编辑需要本地后端服务（npm run dev 启动 server.js）');
+                return;
+            }
             this.saving = true;
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
             try {
                 // 使用批量保存 API，保存整个 heroData 数组
-                const response = await fetch('/api/hero-data', {
+                const response = await fetch(API_BASE + '/api/hero-data', {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
