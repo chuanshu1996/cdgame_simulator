@@ -118,11 +118,6 @@ async function putSyncSnapshot(env, route, body) {
     return now;
 }
 
-async function getAll(env) {
-    const { results } = await env.DB.prepare('SELECT data FROM hero_data ORDER BY idx').all();
-    return results.map(r => JSON.parse(r.data));
-}
-
 function exportTs(rows) {
     return `export default ${JSON.stringify(rows, null, 4)}\n`;
 }
