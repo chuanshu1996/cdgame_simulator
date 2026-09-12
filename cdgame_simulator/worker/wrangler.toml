@@ -4,10 +4,12 @@
 #   *.workers.dev 在中国大陆被 SNI 阻断，前端站点调用会 "Failed to fetch"；
 #   *.pages.dev 走同一批 Cloudflare 边缘节点但未被阻断。详见 ../readme.md。
 #
-# 部署：npx wrangler pages deploy . --project-name cdgame-api --branch main
+# 部署：deploy-worker.yml 在推送 worker/ 时自动执行
+#   npx wrangler pages deploy . --project-name cdgame-api --branch main
+# account_id 由 CI 的 CLOUDFLARE_ACCOUNT_ID 环境变量提供（Pages 配置不支持
+# 在 wrangler.toml 内写 account_id）。
 
 name = "cdgame-api"
-account_id = "5daf719dc0215e6f0792edfe4d83467d"
 pages_build_output_dir = "."
 compatibility_date = "2024-09-23"
 
