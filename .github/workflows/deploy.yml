@@ -36,7 +36,11 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          # 必须是 cdgame_simulator/docs：vue.config.js 的 outputDir 为 'docs'，
+          # 相对的是项目根 cdgame_simulator/，产物落在 cdgame_simulator/docs。
+          # 注意 upload-pages-artifact 的 path 解析基于仓库根（GITHUB_WORKSPACE），
+          # 不受 job 的 defaults.run.working-directory 影响，写 'docs' 会上传仓库根的旧产物。
+          path: cdgame_simulator/docs
   deploy:
     needs: build
     runs-on: ubuntu-latest

@@ -1,9 +1,52 @@
 <template>
     <div class="site-card">
+        <!-- 技能组效果筛选 -->
+        <div class="skill-filter-panel">
+            <div class="filter-header" @click="filterCollapsed = !filterCollapsed">
+                <a-icon :type="filterCollapsed ? 'right' : 'down'" class="collapse-icon" />
+                <span class="filter-title">技能组效果筛选</span>
+                <span class="filter-summary">
+                    <template v-if="selectedTags.length">
+                        已选 <b>{{ selectedTags.length }}</b> 项 · 命中 <b>{{ filteredByTagsCount }}</b> 名选手
+                    </template>
+                    <template v-else>共 {{ data.length }} 名选手</template>
+                </span>
+                <a-button
+                    v-if="selectedTags.length"
+                    type="link"
+                    size="small"
+                    class="clear-btn"
+                    @click.stop="clearTags"
+                >清空筛选</a-button>
+            </div>
+
+            <div v-show="!filterCollapsed" class="filter-body">
+                <div v-for="group in tagGroups" :key="group.category" class="filter-group">
+                    <span class="group-label" :class="'cat-' + group.category">{{ group.category }}</span>
+                    <span class="group-tags">
+                        <a-tooltip
+                            v-for="tag in group.tags"
+                            :key="tag.name"
+                            :title="tag.description"
+                            placement="top"
+                        >
+                            <a-tag
+                                :class="['skill-tag', { active: selectedTags.includes(tag.name) }]"
+                                @click="toggleTag(tag.name)"
+                            >
+                                {{ tag.name }}
+                                <span class="tag-count">{{ tagHits[tag.name] || 0 }}</span>
+                            </a-tag>
+                        </a-tooltip>
+                    </span>
+                </div>
+            </div>
+        </div>
+
         <a-table
                 :columns="columns"
                 :rowKey="record => record.name"
-                :dataSource="data"
+                :dataSource="tableData"
                 :customRow="customRow"
                 :pagination="pagination"
                 :scroll="{ x: 'max-content' }"
@@ -11,6 +54,12 @@
             <span slot="name" slot-scope="name, record">
                 <img :src="getAvatarPath(name, record.index)" class="square-avatar"/>
                 {{name}}
+            </span>
+            <span slot="label" slot-scope="label">
+                <template v-if="splitLabels(label).length">
+                    <a-tag v-for="(l, i) in splitLabels(label)" :key="i" class="hero-label-tag">{{ l }}</a-tag>
+                </template>
+                <span v-else class="empty-cell">-</span>
             </span>
         </a-table>
 
@@ -102,8 +151,26 @@
                                 <a-tag v-if="skill.passive" color="purple" size="small">被动</a-tag>
                                 <a-tag v-if="skill.hide" color="red" size="small">隐藏</a-tag>
                             </div>
+                            <div class="skill-tags-row" v-if="skill.tagNames && skill.tagNames.length">
+                                <a-tag
+                                    v-for="t in skill.tagNames"
+                                    :key="t"
+                                    class="skill-effect-tag"
+                                    :color="categoryColor(t)"
+                                >{{ t }}</a-tag>
+                            </div>
                             <div class="skill-body">
-                                <div class="skill-desc" v-if="skill.text">{{ skill.text }}</div>
+                                <div class="skill-desc" v-if="skill.text">
+                                    <template v-for="(seg, si) in skill.segments">
+                                        <a-tooltip v-if="seg.kind === 'proper'" :key="si" :title="seg.tip || '自定义效果'">
+                                            <span class="proper-noun">{{ seg.text }}</span>
+                                        </a-tooltip>
+                                        <a-tooltip v-else-if="seg.kind === 'highlight'" :key="si" :title="seg.tip">
+                                            <span class="kw-highlight">{{ seg.text }}</span>
+                                        </a-tooltip>
+                                        <span v-else :key="si">{{ seg.text }}</span>
+                                    </template>
+                                </div>
                                 <div class="skill-desc no-desc" v-else-if="!skill.passive">该技能暂无详细描述</div>
                             </div>
                         </div>
@@ -120,6 +187,28 @@
 <script>
     import {HeroBuilders, BattleProperties, HeroData} from '../../core'
     import {getAvatarPathByName} from '../utils/avatar-utils'
+    import {getBuffDescription} from '../../core/buff-descriptions'
+    import {
+        SKILL_TAGS,
+        SKILL_TAG_MAP,
+        CATEGORY_COLORS,
+        deriveSkillTags,
+        splitSkillText,
+        countTagHits,
+        groupTagsByCategory,
+    } from '../utils/skill-tags'
+
+    /**
+     * 拆分多值标签
+     * 全角逗号 `，` 为主分隔符（管理端约定），同时兼容半角 `,`、顿号 `、`、斜杠 `/`
+     */
+    function splitLabelNames(label) {
+        if (!label) return [];
+        return String(label)
+            .split(/[，,、/]/)
+            .map(s => s.trim())
+            .filter(Boolean);
+    }
 
     const columns = [
         {
@@ -201,6 +290,25 @@
             sorter: (a, b) => (a.type || '').localeCompare(b.type || '', 'zh-CN'),
         },
         {
+            title: '代表地',
+            dataIndex: 'region',
+            width: 100,
+            filters: [],
+            filterMultiple: true,
+            onFilter: (value, record) => record.region === value,
+            sorter: (a, b) => (a.region || '').localeCompare(b.region || '', 'zh-CN'),
+        },
+        {
+            title: '标签',
+            dataIndex: 'label',
+            width: 150,
+            scopedSlots: { customRender: 'label' },
+            filters: [],
+            filterMultiple: true,
+            onFilter: (value, record) => splitLabelNames(record.label).includes(value),
+            sorter: (a, b) => (a.label || '').localeCompare(b.label || '', 'zh-CN'),
+        },
+        {
             title: '技能已实现',
             dataIndex: 'ok',
             width: 100,
@@ -268,6 +376,7 @@
 
             const heroList = heros.map(hero => {
                 const heroData = HeroData.find(d => d.index === hero.no);
+                const skillLikes = (hero.skills || []).map(s => ({ text: s.text, passive: s.passive }));
                 return {
                     no: hero.no,
                     name: hero.name,
@@ -276,6 +385,8 @@
                     school: heroData ? heroData.school : '-',
                     position: heroData ? heroData.position : '-',
                     type: heroData ? heroData.type : '-',
+                    region: heroData ? heroData.region : '-',
+                    label: heroData ? heroData.label : '',
                     hp: Math.round(hero.getProperty(BattleProperties.MAX_HP)),
                     atk: Math.round(hero.getProperty(BattleProperties.ATK)),
                     def: Math.round(hero.getProperty(BattleProperties.DEF)),
@@ -286,6 +397,7 @@
                     eft_res: Math.round(hero.getProperty(BattleProperties.EFT_RES) * 100) + '%',
                     ok: hero.hasTag('simple') ? '否' : '是',
                     show: heroData ? heroData.show : 1,
+                    skillTags: deriveSkillTags(skillLikes),
                 };
             }).filter(item => item.show === 1);
 
@@ -305,6 +417,26 @@
                 typeColumn.filters = typeFilters;
             }
 
+            // 动态生成代表地筛选选项
+            const regionSet = new Set(heroList.map(h => h.region).filter(r => r && r !== '-'));
+            const regionColumn = columns.find(c => c.dataIndex === 'region');
+            if (regionColumn) {
+                regionColumn.filters = Array.from(regionSet).sort().map(r => ({ text: r, value: r }));
+            }
+
+            // 动态生成标签筛选选项（多值，拆分后去重）
+            const labelSet = new Set();
+            heroList.forEach(h => splitLabelNames(h.label).forEach(l => labelSet.add(l)));
+            const labelColumn = columns.find(c => c.dataIndex === 'label');
+            if (labelColumn) {
+                labelColumn.filters = Array.from(labelSet).sort().map(l => ({ text: l, value: l }));
+            }
+
+            // 技能效果标签：统计每个标签的命中人数，只保留有数据的标签
+            const tagHits = countTagHits(heroList);
+            const visibleTagDefs = SKILL_TAGS.filter(t => (tagHits[t.name] || 0) > 0);
+            const tagGroups = groupTagsByCategory(visibleTagDefs);
+
             return {
                 data: heroList,
                 columns,
@@ -319,6 +451,11 @@
                 skillModalVisible: false,
                 currentHero: null,
                 currentHeroSkills: [],
+                // 技能组效果筛选
+                tagGroups,
+                tagHits,
+                selectedTags: [],
+                filterCollapsed: false,
             }
         },
         watch: {
@@ -331,9 +468,46 @@
                 immediate: true
             }
         },
+        computed: {
+            /**
+             * 按选中的技能效果标签过滤（AND 逻辑：须同时具备所有选中效果）
+             *
+             * 说明：a-table 的列头筛选由组件内部处理，此处直接改写 dataSource 会与之冲突，
+             * 因此用计算属性「先按标签过滤」再交给表格，列头筛选仍在表格内部叠加生效。
+             */
+            tableData() {
+                if (!this.selectedTags.length) return this.data;
+                return this.data.filter(row =>
+                    this.selectedTags.every(tag => (row.skillTags || []).includes(tag))
+                );
+            },
+            /** 当前标签筛选命中的选手数 */
+            filteredByTagsCount() {
+                return this.tableData.length;
+            },
+        },
         methods: {
             getAvatarPath(name, no) {
                 return getAvatarPathByName(name, no);
+            },
+            /** 拆分多值标签（模板用） */
+            splitLabels(label) {
+                return splitLabelNames(label);
+            },
+            /** 切换某个技能效果标签的选中状态 */
+            toggleTag(tagName) {
+                const i = this.selectedTags.indexOf(tagName);
+                if (i === -1) this.selectedTags.push(tagName);
+                else this.selectedTags.splice(i, 1);
+            },
+            /** 清空技能效果筛选 */
+            clearTags() {
+                this.selectedTags = [];
+            },
+            /** 标签所属大类的配色 */
+            categoryColor(tagName) {
+                const def = SKILL_TAG_MAP[tagName];
+                return def ? CATEGORY_COLORS[def.category] : 'default';
             },
             getRankColor(rank) {
                 const colorMap = {
@@ -386,6 +560,7 @@
                     type: heroData ? heroData.type : null,
                 };
                 this.currentHeroSkills = hero.skills.map(skill => {
+                    const skillLike = [{ text: skill.text, passive: skill.passive }];
                     return {
                         no: skill.no,
                         name: skill.name,
@@ -393,6 +568,8 @@
                         passive: skill.passive,
                         hide: skill.hide,
                         text: skill.text,
+                        tagNames: deriveSkillTags(skillLike),
+                        segments: splitSkillText(skill.text || '', getBuffDescription),
                     };
                 });
                 this.skillModalVisible = true;
@@ -404,6 +581,154 @@
 <style scoped>
 .site-card {
     padding: 20px;
+}
+
+/* ==================== 技能组效果筛选 ==================== */
+.skill-filter-panel {
+    margin-bottom: 16px;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    background: #fafafa;
+    overflow: hidden;
+}
+
+.filter-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+    background: #f0f2f5;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.filter-header:hover {
+    background: #e9ecf0;
+}
+
+.collapse-icon {
+    margin-right: 8px;
+    font-size: 12px;
+    color: #666;
+}
+
+.filter-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+}
+
+.filter-summary {
+    margin-left: 16px;
+    font-size: 12px;
+    color: #888;
+}
+
+.filter-summary b {
+    color: #1890ff;
+}
+
+.clear-btn {
+    margin-left: auto;
+    padding: 0;
+}
+
+.filter-body {
+    padding: 12px 14px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 8px;
+    line-height: 26px;
+}
+
+.filter-group:last-child {
+    margin-bottom: 0;
+}
+
+.group-label {
+    flex-shrink: 0;
+    width: 52px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #666;
+    text-align: right;
+    margin-right: 10px;
+    padding-top: 1px;
+}
+
+.group-tags {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 0;
+}
+
+.skill-tag {
+    cursor: pointer;
+    user-select: none;
+    margin: 0 6px 6px 0;
+    transition: all 0.15s;
+    background: #fff;
+    color: #595959;
+    border-color: #d9d9d9;
+}
+
+.skill-tag:hover {
+    color: #1890ff;
+    border-color: #1890ff;
+}
+
+.skill-tag.active {
+    background: #1890ff;
+    color: #fff;
+    border-color: #1890ff;
+}
+
+.tag-count {
+    margin-left: 4px;
+    font-size: 11px;
+    opacity: 0.65;
+}
+
+/* 列表内的标签列 */
+.hero-label-tag {
+    margin-bottom: 2px;
+    background: #f0f5ff;
+    border-color: #adc6ff;
+    color: #2f54eb;
+}
+
+.empty-cell {
+    color: #bfbfbf;
+}
+
+/* ==================== 技能弹窗：效果标签与高亮 ==================== */
+.skill-tags-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 0 8px 0;
+}
+
+.skill-effect-tag {
+    margin: 0;
+    font-size: 11px;
+}
+
+.proper-noun {
+    color: #e2a03f;
+    font-weight: 600;
+    cursor: help;
+    border-bottom: 1px dashed #e2a03f;
+}
+
+.kw-highlight {
+    color: #1890ff;
+    cursor: help;
+    border-bottom: 1px dashed #91d5ff;
 }
 
 .square-avatar {

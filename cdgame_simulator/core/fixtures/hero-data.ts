@@ -1167,7 +1167,7 @@ export default [
         "position": "中坚",
         "sex": "女",
         "type": "辅助",
-        "label": "部长",
+        "label": "部长，茶",
         "nickname": "",
         "region": "兵库",
         "point": "370.62039475823497"
