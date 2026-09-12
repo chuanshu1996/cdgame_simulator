@@ -1,8 +1,8 @@
 name: Deploy to GitHub Pages
 
-# 推送到 main 即重新构建并部署 Pages。
-# 管理员在线上编辑卡牌属性后，server.js 会把 hero-data.ts 自动 commit 回本仓库（AUTO_COMMIT=1），
-# 从而触发本工作流，使线上站点同步最新数据。
+# 推送到 main 即重新构建并部署 Pages（构建时把 VUE_APP_API_BASE 烤入静态站点）。
+# 管理员在线上编辑卡牌属性后，sync-herodata.yml 工作流会定时/手动从 Cloudflare D1 导出
+# 写回 cdgame_simulator/core/fixtures/hero-data.ts 并推送，从而触发本工作流重建 Pages。
 on:
   push:
     branches: [main]
@@ -36,7 +36,7 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: cdgame_simulator/docs
+          path: docs
   deploy:
     needs: build
     runs-on: ubuntu-latest
