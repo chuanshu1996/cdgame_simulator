@@ -15,7 +15,7 @@
                 showIcon
                 class="admin-unavailable"
                 message="卡牌属性编辑功能不可用"
-                description="卡牌属性读写依赖后端 API。若此处一直加载失败，说明当前未配置可用的后端：本地可在项目根执行 npm run dev 后通过 http://localhost:8080 使用；线上需部署后端（如 Cloudflare Workers + D1）并把构建变量 VUE_APP_API_BASE 指向其地址（详见部署文档）。"
+                description="卡牌属性读写依赖后端 API，当前无法连接。本地开发：在项目根执行 npm run dev 后通过 http://localhost:8080 使用（Vue CLI 会代理 /api 到 server.js）。线上：确认后端已部署且构建变量 VUE_APP_API_BASE 指向其地址（详见 readme.md「后端部署」）。"
             />
             <template v-else>
             <div class="toolbar">
@@ -309,7 +309,8 @@ import * as XLSX from 'xlsx';
 const ADMIN_PASSWORD_HASH = '4f323fde03b2d593d6988bb02ab0b7b7';
 
 // 后端 API 基址：默认相对路径（本地 dev 由 Vue CLI 代理到 server.js:3001）。
-// 部署到线上时通过 VUE_APP_API_BASE 指向后端（如 Cloudflare Workers + D1）。
+// 线上通过 VUE_APP_API_BASE 指向 Cloudflare Pages Function（*.pages.dev，
+// 不能用 *.workers.dev——该域名在大陆被 SNI 阻断，见 readme.md「后端部署」）。
 const API_BASE = process.env.VUE_APP_API_BASE || '';
 
 // 保存请求超时时间（毫秒），避免后端未启动时请求长时间挂起
@@ -534,7 +535,7 @@ export default {
             if (response.status === 413) return '数据量超出服务端限制（413），请联系管理员调整上传上限';
             if (response.status === 401) return '登录状态已失效，请重新以管理员身份登录';
             if (response.status === 404) {
-                return '接口不存在（404）：未配置可用的后端 API。请确认已部署后端并将 VUE_APP_API_BASE 指向其地址（参见部署文档）';
+                return '接口不存在（404）：后端 API 未部署或 VUE_APP_API_BASE 指向的地址无该接口（参见 readme.md「后端部署」）';
             }
             const snippet = raw.replace(/<[^>]+>/g, '').replace(/&middot;/g, '·').trim().slice(0, 80);
             return snippet ? `HTTP ${response.status}：${snippet}` : `HTTP ${response.status}`;
@@ -624,7 +625,7 @@ export default {
             }
 
             if (this.apiUnavailable) {
-                this.$message.warning('当前环境不支持保存：卡牌属性编辑需要本地后端服务（npm run dev 启动 server.js）');
+                this.$message.warning('当前环境无法连接后端，无法保存：请确认后端已部署且 VUE_APP_API_BASE 指向其地址（本地可 npm run dev）');
                 return;
             }
             this.saving = true;

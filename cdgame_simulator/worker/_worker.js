@@ -1,4 +1,14 @@
-// Cloudflare Workers + D1 后端，替代本地 server.js。
+// Cloudflare Pages Function（advanced mode, _worker.js）后端，替代本地 server.js。
+//
+// 为什么是 *.pages.dev 而不是 *.workers.dev：
+//   *.workers.dev 在中国大陆被 SNI 阻断——TCP 能连上 Cloudflare 边缘，但 TLS
+//   ClientHello 里带上 *.workers.dev 的 SNI 后握手即被 RST，浏览器表现为
+//   "Failed to fetch"。*.pages.dev 解析到同一批 Cloudflare 边缘 IP，未被阻断。
+//   实测（同一台机器、同一时刻）：
+//     SNI=cdgame-api.chenruofei1996.workers.dev + 真实 CF IP  -> 连接重置
+//     SNI=<任意>.pages.dev                   + 同一 CF IP     -> 200
+//   部署方式见本目录 ../readme.md「后端部署」。
+//
 // 接口契约与 server.js 完全一致：
 //   GET    /api/hero-data            取全部卡牌
 //   PUT    /api/hero-data            全量替换（批量保存）
@@ -7,6 +17,9 @@
 //   DELETE /api/hero-data/:index     按 index 删除
 //   GET    /api/hero-data/export     导出 hero-data.ts 文本（供同步回仓库）
 // 鉴权：Authorization: Bearer <管理密码MD5>，与前端 HeroData.vue 一致。
+//
+// 本文件是唯一后端实现：advanced mode 下 worker 接管全部路由，因此不再需要
+// 静态占位页，非 /api/hero-data 的请求统一返回 JSON 404。
 
 const NUMERIC_FIELDS = ['index', 'atk', 'hp', 'def', 'spd', 'cri', 'cri_dmg', 'eft_hit', 'eft_res', 'show'];
 
