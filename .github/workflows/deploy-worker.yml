@@ -1,0 +1,43 @@
+name: Deploy API (Cloudflare Pages Function)
+
+# 后端（worker/，Cloudflare Pages Function + D1）随仓库一起部署，避免手动
+# `wrangler pages deploy` 造成的漂移。任意对 worker/ 目录（含 wrangler.toml）
+# 的改动推送到 main 都会重建并部署 cdgame-api.pages.dev。
+#
+# 需要的仓库 Secrets：
+#   CLOUDFLARE_API_TOKEN  —— Workers/D1/Pages 写权限
+# 需要的仓库 Variables：
+#   CLOUDFLARE_ACCOUNT_ID —— 5daf719dc0215e6f0792edfe4d83467d
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cdgame_simulator/worker/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 部署 Pages Function（包含 D1 绑定与 vars）
+        working-directory: cdgame_simulator/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm install --no-save wrangler@latest
+          npx wrangler pages deploy . \
+            --project-name cdgame-api \
+            --branch main \
+            --commit-dirty=true
