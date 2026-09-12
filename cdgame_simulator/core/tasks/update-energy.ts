@@ -37,15 +37,21 @@ export default function updateEnergyProcessor(battle: Battle, data: UpdateEnergy
     const energy = battle.energys[data.teamId];
     if (!energy) return 0; // 没有能量对象，出错
 
+    // 无限能量模式：不扣减消耗（data.num < 0），但仍允许获得（data.num > 0）
+    if (battle.isInfiniteEnergy() && data.num < 0) {
+        return -1;
+    }
+
     // 更新能量数量
     energy.num = energy.num + data.num;
 
     // 检查能量数量是否合法
     if (energy.num < 0) return 0; // 能量数量不能为负，出错
 
-    // 检查能量是否溢出
-    if (energy.num > 8) {
-        energy.num = 8; // 能量上限为8
+    // 检查能量是否溢出（上限可配置，默认 8）
+    const maxNum = (energy.maxNum !== undefined ? energy.maxNum : 8);
+    if (energy.num > maxNum) {
+        energy.num = maxNum;
         // 触发能量溢出事件
         battle.addEventProcessor(EventCodes.ENERGY_OVERFLOW, 0, data);
     }

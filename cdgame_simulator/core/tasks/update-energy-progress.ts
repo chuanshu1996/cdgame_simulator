@@ -36,11 +36,12 @@ export default function updateEnergyProgressProcessor(battle: Battle, data: Upda
     const energy = battle.energys[data.teamId];
     if (!energy) return 0; // 没有能量对象，出错
 
-    // 更新能量进度
+    // 更新能量进度（满值可配置，默认 5）
     energy.progress = energy.progress + data.num;
+    const progressGoal = (energy.progressGoal !== undefined ? energy.progressGoal : 5);
     // 确保进度在合理范围内
     if (energy.progress < 0) energy.progress = 0;
-    if (energy.progress > 5) energy.progress = 5;
+    if (energy.progress > progressGoal) energy.progress = progressGoal;
 
     return -1; // 结束处理
 }

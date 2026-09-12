@@ -192,11 +192,65 @@ function ensureMaxedStatusSize(status: boolean[]) {
     return status;
 }
 
+// 上场人数合法化：限制在 1~6，非法值回退默认
+function clampTeamSize(n: any, fallback = 6) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return fallback;
+    return Math.min(6, Math.max(1, Math.floor(v)));
+}
+
+// 每队上场人数（[左队, 右队]，两侧可不相等）
+function loadTeamSizes(saved: any) {
+    const def = [6, 6];
+    if (!saved) return def;
+    let arr = saved.teamSizes;
+    if (!Array.isArray(arr) || arr.length < 2) {
+        // 兼容旧持久化数据：原来只有单一 teamSize，两侧取相同值
+        const legacy = Number(saved.teamSize);
+        arr = Number.isFinite(legacy) ? [legacy, legacy] : def;
+    }
+    return [clampTeamSize(arr[0]), clampTeamSize(arr[1])];
+}
+
+// 战场配置默认值（等价于原 6v6 默认规则）
+function getDefaultBattleSetup() {
+    return {
+        teamSizes: [6, 6],      // 每队上场人数（各 1~6，两侧可不相等）
+        hasReserve: true,       // 是否包含替补/应援（位置6、7，不上场但可触发被动）
+        energy: {
+            infinite: false,    // 无限能量
+            initNum: 4,         // 初始能量
+            maxNum: 8,          // 能量上限
+            progressGoal: 5,    // 进度满值（每次行动 +1）
+            recoverAmount: 5,   // 进度满时恢复点数
+            bonusIntervalRounds: 0, // 每隔 N 个裁判旗回合额外给能量，0=关闭
+            bonusAmount: 0,         // 每次额外给的点数
+        },
+        winCondition: {
+            type: 'annihilation', // annihilation=全灭制 | hp_compare=回合数到达比血量
+            maxJudgeRounds: 0,    // 裁判旗回合上限，0=无限
+        },
+    };
+}
+
+// 合并保存的战场配置，保证字段完整（防止旧数据缺字段）
+function loadBattleSetup(saved: any) {
+    const def = getDefaultBattleSetup();
+    if (!saved) return def;
+    return {
+        teamSizes: loadTeamSizes(saved),
+        hasReserve: typeof saved.hasReserve === 'boolean' ? saved.hasReserve : def.hasReserve,
+        energy: Object.assign({}, def.energy, saved.energy),
+        winCondition: Object.assign({}, def.winCondition, saved.winCondition),
+    };
+}
+
 const initialState = {
     team0: ensureTeamSize(savedState?.team0, 0) || getTeamMembers(heroList, 0),
     team1: ensureTeamSize(savedState?.team1, 1) || getTeamMembers(heroList, 1),
     team0Name: savedState?.team0Name || '红队',
     team1Name: savedState?.team1Name || '蓝队',
+    battleSetup: loadBattleSetup(savedState?.battleSetup),
     maxedStatus: {
         0: ensureMaxedStatusSize(savedState?.maxedStatus?.[0]) || [false, false, false, false, false, false, false, false],
         1: ensureMaxedStatusSize(savedState?.maxedStatus?.[1]) || [false, false, false, false, false, false, false, false],
@@ -320,6 +374,14 @@ export default new Vuex.Store({
         },
         SET_OFFICIAL_MATCH(state, isOfficial: boolean) {
             state.isOfficialMatch = isOfficial;
+            saveState(state);
+        },
+        UPDATE_BATTLE_SETUP(state, setup: any) {
+            state.battleSetup = loadBattleSetup(setup);
+            saveState(state);
+        },
+        RESET_BATTLE_SETUP(state) {
+            state.battleSetup = getDefaultBattleSetup();
             saveState(state);
         },
     },

@@ -38,3 +38,9 @@ _st.txt
 _bak.ps1
 _staged.txt
 
+# Temporary debug / serve logs (generated during troubleshooting)
+dev_*.log
+*.out.log
+cdgame_simulator/*.out.log
+cdgame_simulator/dev_*.log
+

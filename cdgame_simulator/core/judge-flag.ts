@@ -3,7 +3,7 @@
  * 实现百鬼弈中的裁决鬼王效果
  */
 
-import {BattleProperties} from './constant';
+import {BattleProperties, Reasons} from './constant';
 import Battle, {BattleLogType} from './battle';
 import Entity from './entity';
 
@@ -172,6 +172,25 @@ export function triggerJudgeKingAction(battle: Battle): void {
         damageMultiplier: damageMultiplier,
         healMultiplier: healMultiplier
     });
+
+    // 每隔 N 个裁判旗回合，双方额外增加 M 点能量（可配置，默认关闭）
+    const energyCfg = battle.energyConfig;
+    if (energyCfg && energyCfg.bonusIntervalRounds > 0 && energyCfg.bonusAmount > 0
+        && battle.judgeRound > 0 && battle.judgeRound % energyCfg.bonusIntervalRounds === 0) {
+        for (let teamId = 0; teamId < 2; teamId++) {
+            battle.actionUpdateEnergy(0, teamId, energyCfg.bonusAmount, Reasons.RULE);
+        }
+        battle.log(`【能量】每 ${energyCfg.bonusIntervalRounds} 回合结算：双方各增加 ${energyCfg.bonusAmount} 点能量`);
+        battle.addEventLog('info' as BattleLogType,
+            `裁判旗第 ${battle.judgeRound} 回合：双方各增加 ${energyCfg.bonusAmount} 点能量`);
+    }
+
+    // 达到裁判旗回合上限时，按"在场总血量"结算并结束战斗
+    const roundLimit = (battle.winCondition && battle.winCondition.maxJudgeRounds) || battle.maxJudgeRounds || 0;
+    if (roundLimit > 0 && battle.judgeRound >= roundLimit) {
+        battle.log(`裁判旗回合已达上限 ${roundLimit}，按在场总血量判定胜负`);
+        battle.judgeWinByHp();
+    }
 }
 
 /**

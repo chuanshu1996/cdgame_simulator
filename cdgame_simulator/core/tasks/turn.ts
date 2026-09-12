@@ -355,10 +355,14 @@ export default function turnProcessor(battle: Battle, data: TurnProcessing, step
             const energy = battle.energys[currentEntity.teamId];
             if (!energy) return 0; // 没有能量对象，出错
 
-            // 能量进度满，增加能量
-            if (energy.progress >= 5) {
+            // 能量进度满，增加能量（满值与恢复量均可配置，默认满值5、恢复5点）
+            const progressGoal = (energy.progressGoal !== undefined ? energy.progressGoal : 5);
+            const recoverAmount = (battle.energyConfig && battle.energyConfig.recoverAmount !== undefined)
+                ? battle.energyConfig.recoverAmount
+                : 5;
+            if (energy.progress >= progressGoal) {
                 energy.progress = 0;
-                energy.preProgress = Math.min(5, energy.preProgress + 1);
+                energy.preProgress = Math.min(recoverAmount, energy.preProgress + 1);
                 battle.actionUpdateEnergy(0, currentEntity.teamId, energy.preProgress, Reasons.RULE);
             }
             return -1; // 结束回合

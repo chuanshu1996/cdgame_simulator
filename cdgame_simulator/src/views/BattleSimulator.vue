@@ -75,7 +75,28 @@
                 >
                     应用
                 </a-button>
+                <span class="round-control">
+                    <span class="round-label">总回合:</span>
+                    <a-input-number
+                        v-model="inputMaxRound"
+                        size="small"
+                        class="round-input"
+                        :min="0"
+                        :max="999"
+                        placeholder="0=无限"
+                        @pressEnter="applySeed"
+                    />
+                </span>
+                <a-button
+                    size="small"
+                    class="setup-btn"
+                    @click="goBattleSetup"
+                    title="前往战场配置"
+                >
+                    <a-icon type="setting" />战场配置
+                </a-button>
             </span>
+            <span class="info-item setup-summary">当前规则：{{ setupSummary }}</span>
             <span class="info-item hint-text">{{data.hint}}</span>
         </div>
         <div v-if="data.event">事件: {{data.event}}</div>
@@ -139,7 +160,7 @@
                 <div class="energy-label">{{ teamId === 1 ? team0Name : team1Name }}能量</div>
                 <div class="energy-orbs">
                     <span 
-                        v-for="n in 8" 
+                        v-for="n in energyMaxNum" 
                         :key="n" 
                         class="energy-orb"
                         :class="[
@@ -161,7 +182,7 @@
                     <span v-if="buff.countDown !== undefined" class="buff-countdown">{{ buff.countDown }}</span>
                 </div>
             </div>
-            <div class="hero-field">
+            <div class="hero-field" :style="heroFieldStyleOf(teamId)">
                 <div v-for="(e, idx) in data.teams[teamId - 1]" :key="e.entityId">
                     <div class="hero-card-wrap"
                          :class="{
@@ -176,7 +197,7 @@
                     >
                         <div class="hero-info">
                             <div class="hero-info-left">
-                                <div class="position-label">{{ positionLabels[idx] }}</div>
+                                <div class="position-label">{{ positionLabelsOf(teamId)[idx] }}</div>
                                 <a-avatar class="hero-avatar active" :class="'team' + (teamId - 1)" :src="getAvatarPath(e.no)" size="large" @click.stop="navigateToHeroList(e.no)"/>
                             </div>
                             <div class="hero-properties">
@@ -592,6 +613,36 @@
                     height: 24px;
                     font-size: 12px;
                 }
+
+                .round-control {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    margin-left: 4px;
+
+                    .round-label {
+                        font-weight: 500;
+                        color: #333;
+                    }
+
+                    .round-input {
+                        width: 90px;
+                    }
+                }
+
+                .setup-btn {
+                    padding: 0 12px;
+                    height: 24px;
+                    font-size: 12px;
+                    margin-left: 4px;
+                }
+            }
+
+
+            .setup-summary {
+                color: #8c8c8c;
+                font-size: 12px;
+                margin-bottom: 2px;
             }
         }
         
@@ -2080,7 +2131,20 @@
             .end();
     }
 
-    function empty() {
+    // 生成占位队伍结构；每队卡片数量按各自上场人数生成（两侧可不等）
+    function buildPlaceholderTeam(size) {
+        return map(Array.from({length: Math.min(6, Math.max(1, size || 6))}), () => ({
+            entityId: Math.floor(Math.random() * 10000) + 10000,
+            hp: 0,
+            maxHp: 0,
+            dead: true,
+            no: 99,
+            buffs: [],
+            name: '',
+        }));
+    }
+
+    function empty(size0, size1) {
         return {
             seed: 0,
             hint: '',
@@ -2099,24 +2163,8 @@
             ],
             globalBuffs: [[], []],
             teams: [
-                map(Array.from({length: 6}), () => ({
-                    entityId: Math.floor(Math.random() * 10000) + 10000,
-                    hp: 0,
-                    maxHp: 0,
-                    dead: true,
-                    no: 99,
-                    buffs: [],
-                    name: '',
-                })),
-                map(Array.from({length: 6}), () => ({
-                    entityId: Math.floor(Math.random() * 10000) + 10000,
-                    hp: 0,
-                    maxHp: 0,
-                    dead: true,
-                    no: 99,
-                    buffs: [],
-                    name: '',
-                }))
+                buildPlaceholderTeam(size0),
+                buildPlaceholderTeam(size1),
             ],
             summons: [
                 {
@@ -2148,7 +2196,9 @@
     }
 
     function dump(battle) {
-        const dump = empty();
+        // 每队卡片数量跟随各自上场人数（两侧可不等）
+        const teamSizeOf = (teamId) => (battle.teamSizes ? battle.teamSizes[teamId] : 6) || 6;
+        const dump = empty(teamSizeOf(0), teamSizeOf(1));
         const types = [];
         for (let t = battle.currentTask; t; t = t.parent) {
             types.push(`${t.type}【${t.step}】`);
@@ -2188,7 +2238,8 @@
             dump.energy[teamId].num = battle.getEnergy(teamId).num;
             dump.energy[teamId].progress = battle.getEnergy(teamId).progress;
 
-            for (let pos = 0; pos < 6; pos++) {
+            const teamSize = teamSizeOf(teamId);
+            for (let pos = 0; pos < teamSize; pos++) {
                 const field = battle.fields[teamId];
                 const id = field[pos];
                 if (id) {
@@ -2349,7 +2400,7 @@
         data() {
             return {
                 seed: Math.random(),
-                data: empty(),
+                data: empty(6, 6),
                 battle: null,
                 selectionNo: 0,
                 selectedSkill: {},
@@ -2365,11 +2416,11 @@
                 lastLogCount: 0,
                 autoMode: true,
                 hideDebugInfo: false,
-                positionLabels: ['教练', '先锋', '次锋', '中坚', '副将', '大将'],
                 showBattleStats: false,
                 showBuffModal: false,
                 currentBuff: null,
                 inputSeedStr: '',
+                inputMaxRound: 0,
                 skillModalVisible: false,
                 currentHero: null,
                 currentHeroSkills: [],
@@ -2385,41 +2436,40 @@
                 this.inputSeedStr = String(querySeed);
                 this.seed = Number(querySeed) / 1000000000;
             }
+
+            // 支持人数直达：?size=N 表示两侧同为 N；?s0=A&s1=B 可分别指定左右人数
+            const clampSize = (n) => (Number.isFinite(n) ? Math.min(6, Math.max(1, Math.floor(n))) : null);
+            const querySize = clampSize(Number(this.$route.query.size));
+            const querySize0 = clampSize(Number(this.$route.query.s0));
+            const querySize1 = clampSize(Number(this.$route.query.s1));
+            const nextSizes = (() => {
+                if (querySize0 || querySize1) {
+                    const current = this.$store.state.battleSetup || {};
+                    const base = Array.isArray(current.teamSizes) && current.teamSizes.length >= 2
+                        ? current.teamSizes : [6, 6];
+                    return [querySize0 || clampSize(Number(base[0])) || 6, querySize1 || clampSize(Number(base[1])) || 6];
+                }
+                if (querySize) return [querySize, querySize];
+                return null;
+            })();
+            if (nextSizes) {
+                const current = JSON.parse(JSON.stringify(this.$store.state.battleSetup || {}));
+                current.teamSizes = nextSizes;
+                this.$store.commit('UPDATE_BATTLE_SETUP', current);
+            }
             
             // eslint-disable-next-line
-            // 加载8个位置的角色（包括替补和应援），但只有前6个上场
-            const team0All = this.$store.state.team0.slice(0, 8);
-            const team1All = this.$store.state.team1.slice(0, 8);
+            // 按战场配置加载角色：上场 teamSize 个，另可带位置6/7的替补应援
             const maxedStatus = this.$store.state.maxedStatus;
-            const soulSelections = this.$store.state.soulSelections;
-            
-            // 为红队的选手添加御魂信息，并标记替补/应援位置
-            const team0WithSoul = team0All.map((d, index) => {
-                return Object.assign({}, d, {
-                    waitInput: true, 
-                    soulIds: soulSelections[0][index] || [],
-                    isReserve: index >= 6  // 位置6和7为替补/应援，不上场但可触发被动
-                });
-            });
-            
-            // 为蓝队的选手添加御魂信息，并标记替补/应援位置
-            const team1WithSoul = team1All.map((d, index) => {
-                return Object.assign({}, d, {
-                    waitInput: true, 
-                    soulIds: soulSelections[1][index] || [],
-                    isReserve: index >= 6  // 位置6和7为替补/应援，不上场但可触发被动
-                });
-            });
-            
-            const data = team0WithSoul.concat(team1WithSoul);
-            
+            const data = this.buildBattleData();
+
             let initialSeed;
             if (querySeed) {
                 initialSeed = Number(querySeed);
             } else {
                 initialSeed = Math.floor(this.seed * 1000000000);
             }
-            window.battle = this.battle = new Battle(data, initialSeed);
+            window.battle = this.battle = new Battle(data, initialSeed, this.inputMaxRound, this.battleOptions);
             if (!querySeed) {
                 this.inputSeedStr = String(initialSeed);
             }
@@ -2468,8 +2518,115 @@
             currentSeed() {
                 return this.inputSeedStr || Math.floor(this.seed * 1000000000);
             },
+            // 战场配置（来自战场配置页面，存于 Vuex 并持久化）
+            setup() {
+                return this.$store.state.battleSetup || {};
+            },
+            // 两侧上场人数 [左队(team0), 右队(team1)]，各自 1~6，可不等
+            teamSizes() {
+                const raw = this.setup.teamSizes;
+                const clamp = (n) => {
+                    const v = Number(n);
+                    return Number.isFinite(v) ? Math.min(6, Math.max(1, Math.floor(v))) : 6;
+                };
+                if (Array.isArray(raw) && raw.length >= 2) return [clamp(raw[0]), clamp(raw[1])];
+                // 兼容旧配置：只有单一 teamSize
+                const legacy = Number(this.setup.teamSize);
+                const v = Number.isFinite(legacy) ? clamp(legacy) : 6;
+                return [v, v];
+            },
+            teamSize0() {
+                return this.teamSizes[0];
+            },
+            teamSize1() {
+                return this.teamSizes[1];
+            },
+            // 是否包含替补/应援（位置6、7）
+            hasReserve() {
+                return this.setup.hasReserve !== false;
+            },
+            // 能量球显示数量（等于配置上限）
+            energyMaxNum() {
+                const cfg = this.setup.energy || {};
+                const n = Number(cfg.maxNum);
+                return Number.isFinite(n) && n > 0 ? Math.min(16, n) : 8;
+            },
+            // 交给 Battle 的完整配置
+            battleOptions() {
+                const energy = Object.assign({
+                    initNum: 4, maxNum: 8, progressGoal: 5, recoverAmount: 5,
+                    infinite: false, bonusIntervalRounds: 0, bonusAmount: 0,
+                }, this.setup.energy || {});
+                const winCondition = Object.assign(
+                    { type: 'annihilation', maxJudgeRounds: this.inputMaxRound || 0 },
+                    this.setup.winCondition || {},
+                );
+                // 页面上的"总回合"输入框优先（0 表示用配置里的值）
+                if (Number(this.inputMaxRound) > 0) {
+                    winCondition.maxJudgeRounds = Number(this.inputMaxRound);
+                    winCondition.type = 'hp_compare';
+                }
+                return { energy, winCondition, teamSizes: this.teamSizes };
+            },
+            // 当前规则摘要
+            setupSummary() {
+                const e = this.setup.energy || {};
+                const w = this.setup.winCondition || {};
+                const energyText = e.infinite
+                    ? '无限能量'
+                    : `初始${e.initNum ?? 4}/上限${e.maxNum ?? 8}/每${e.progressGoal ?? 5}动回${e.recoverAmount ?? 5}`
+                      + ((e.bonusIntervalRounds > 0 && e.bonusAmount > 0)
+                          ? `，每${e.bonusIntervalRounds}回合+${e.bonusAmount}` : '');
+                const rounds = Number(this.inputMaxRound) > 0 ? Number(this.inputMaxRound) : (w.maxJudgeRounds || 0);
+                const winText = rounds > 0
+                    ? `裁判旗${rounds}回合后比在场总血量`
+                    : '一方全灭';
+                return `${this.teamSize0}v${this.teamSize1}｜${energyText}｜${winText}`;
+            },
         },
         methods: {
+            // 位置标签按该队上场人数动态截取（teamId 为模板中的 1/2）
+            positionLabelsOf(teamId) {
+                const all = ['教练', '先锋', '次锋', '中坚', '副将', '大将'];
+                return all.slice(0, this.teamSizes[teamId - 1]);
+            },
+            // 英雄卡片栅格列数（按该队上场人数自适应）
+            heroFieldStyleOf(teamId) {
+                return { gridTemplateColumns: `repeat(${this.teamSizes[teamId - 1]}, minmax(0, 1fr))` };
+            },
+            // 跳转到战场配置页（带返回路径，保存后可回到当前对局）
+            goBattleSetup() {
+                this.$router.push({ path: '/battle-setup', query: { from: this.$route.path } });
+            },
+            /**
+             * 按当前战场配置构建 Battle 初始化数据
+             * - 每队各取自身人数（teamSizes[teamId]，两侧可不相等）
+             * - hasReserve 时额外带位置6、7的替补/应援（isReserve=true，不上场但可触发被动）
+             */
+            buildBattleData() {
+                const soulSelections = this.$store.state.soulSelections;
+                const sizes = this.teamSizes;
+
+                const buildTeam = (teamId) => {
+                    const all = (teamId === 0 ? this.$store.state.team0 : this.$store.state.team1) || [];
+                    const size = sizes[teamId];
+                    const fighters = all.slice(0, size).map((d, index) => Object.assign({}, d, {
+                        waitInput: true,
+                        soulIds: (soulSelections[teamId] || [])[index] || [],
+                        isReserve: false,
+                    }));
+                    if (!this.hasReserve) return fighters;
+                    // 替补(6)、应援(7)
+                    const reserves = all.slice(6, 8).map((d, index) => Object.assign({}, d, {
+                        waitInput: true,
+                        soulIds: (soulSelections[teamId] || [])[6 + index] || [],
+                        isReserve: true,
+                    }));
+                    return fighters.concat(reserves);
+                };
+
+                return buildTeam(0).concat(buildTeam(1));
+            },
             resetBattle() {
                 this.selectionNo = 0;
                 this.selectedSkill = {};
@@ -2491,22 +2648,10 @@
                 this.currentHero = null;
                 this.currentHeroSkills = [];
                 
-                const team0Fighters = this.$store.state.team0.slice(0, 8);
-                const team1Fighters = this.$store.state.team1.slice(0, 8);
                 const maxedStatus = this.$store.state.maxedStatus;
-                const soulSelections = this.$store.state.soulSelections;
-                
-                const team0WithSoul = team0Fighters.map((d, index) => {
-                    return Object.assign({}, d, {waitInput: true, soulIds: soulSelections[0][index] || []});
-                });
-                
-                const team1WithSoul = team1Fighters.map((d, index) => {
-                    return Object.assign({}, d, {waitInput: true, soulIds: soulSelections[1][index] || []});
-                });
-                
-                const data = team0WithSoul.concat(team1WithSoul);
+                const data = this.buildBattleData();
                 const currentSeed = parseInt(this.inputSeedStr, 10) || Math.floor(this.seed * 1000000000);
-                window.battle = this.battle = new Battle(data, currentSeed, true);
+                window.battle = this.battle = new Battle(data, currentSeed, this.inputMaxRound, this.battleOptions);
                 this.inputSeedStr = String(currentSeed);
                 
                 for (let teamId = 0; teamId < 2; teamId++) {
@@ -2560,22 +2705,10 @@
                     return;
                 }
                 
-                // 重新创建战斗实例
-                const team0Fighters = this.$store.state.team0.slice(0, 8);
-                const team1Fighters = this.$store.state.team1.slice(0, 8);
+                // 重新创建战斗实例（按当前战场配置）
                 const maxedStatus = this.$store.state.maxedStatus;
-                const soulSelections = this.$store.state.soulSelections;
-                
-                const team0WithSoul = team0Fighters.map((d, index) => {
-                    return Object.assign({}, d, {waitInput: true, soulIds: soulSelections[0][index] || []});
-                });
-                
-                const team1WithSoul = team1Fighters.map((d, index) => {
-                    return Object.assign({}, d, {waitInput: true, soulIds: soulSelections[1][index] || []});
-                });
-                
-                const data = team0WithSoul.concat(team1WithSoul);
-                window.battle = this.battle = new Battle(data, seedValue, true);
+                const data = this.buildBattleData();
+                window.battle = this.battle = new Battle(data, seedValue, this.inputMaxRound, this.battleOptions);
                 
                 // 为选中"满"的角色添加满经验Buff
                 for (let teamId = 0; teamId < 2; teamId++) {

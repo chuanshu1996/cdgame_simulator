@@ -63,6 +63,55 @@ interface InititalData {
     isReserve?: boolean; // 是否为替补/应援位置（不上场但可触发被动技能）
 }
 
+/**
+ * 能量配置
+ */
+export interface EnergyConfig {
+    initNum: number; // 初始能量点数
+    maxNum: number; // 能量上限
+    progressGoal: number; // 能量进度满值（每次行动 +1，达到后触发恢复）
+    recoverAmount: number; // 进度满时一次恢复的点数
+    infinite: boolean; // 无限能量（不消耗）
+    bonusIntervalRounds: number; // 每隔 N 个裁判旗回合额外增加能量，0 = 关闭
+    bonusAmount: number; // 每次额外增加的点数
+}
+
+/**
+ * 获胜条件
+ * - annihilation：默认，一方全灭即结束
+ * - hp_compare：裁判旗进行到第 N 回合结束，按在场总血量高者胜
+ */
+export interface WinCondition {
+    type: 'annihilation' | 'hp_compare';
+    maxJudgeRounds: number; // 裁判旗回合上限，0 = 无限（此时忽略 type 的回合判定）
+}
+
+/**
+ * 战斗可选项
+ */
+export interface BattleOptions {
+    energy: EnergyConfig;
+    winCondition: WinCondition;
+    teamSizes?: [number, number]; // 每队上场人数（1~6，两侧可不相等）；缺省由初始化数据派生
+}
+
+/** 默认能量配置（等价于原 6v6 规则） */
+export const DEFAULT_ENERGY_CONFIG: EnergyConfig = {
+    initNum: 4,
+    maxNum: 8,
+    progressGoal: 5,
+    recoverAmount: 5,
+    infinite: false,
+    bonusIntervalRounds: 0,
+    bonusAmount: 0,
+};
+
+/** 默认获胜条件（全灭制、无回合上限） */
+export const DEFAULT_WIN_CONDITION: WinCondition = {
+    type: 'annihilation',
+    maxJudgeRounds: 0,
+};
+
 export type BattleLogType = 'damage' | 'heal' | 'skill' | 'buff' | 'death' | 'turn' | 'info';
 
 export interface BattleLog {
@@ -126,15 +175,27 @@ export default class Battle {
     pendingBuffLogs: Map<string, PendingBuffLog>; // 待合并的Buff日志
     currentSkillName: string; // 当前技能名称
     battleId: number; // 战斗ID，用于裁判旗管理
+    maxJudgeRounds: number; // 裁判旗最大回合数上限，0 表示无限（默认行为）
+    energyConfig: EnergyConfig; // 能量配置
+    winCondition: WinCondition; // 获胜条件配置
+    teamSizes: [number, number]; // 每队上场人数（不含替补6/7与召唤位8），两侧可不相等
 
     /**
      * 构造函数
      * @param datas 初始化数据数组
      * @param seed 随机种子，默认为当前时间戳
+     * @param maxJudgeRounds 裁判旗最大回合数，达到后按"在场总血量"判定胜负；0 或不传为无限回合
+     * @param options 能量、获胜条件与人数配置（缺省用默认值，等价于原 6v6 默认规则）
      */
-    constructor(datas: InititalData[], seed = Date.now()) {
+    constructor(datas: InititalData[], seed = Date.now(), maxJudgeRounds = 0, options?: Partial<BattleOptions>) {
         this.isEnd = false;
         this.winner = -1;
+        this.maxJudgeRounds = maxJudgeRounds || 0;
+        this.teamSizes = [6, 6]; // 先给默认值，稍后由初始化数据（或 options）覆盖
+        this.energyConfig = Object.assign({}, DEFAULT_ENERGY_CONFIG, options && options.energy);
+        this.winCondition = Object.assign({}, DEFAULT_WIN_CONDITION, options && options.winCondition);
+        // 兼容旧调用：第三参优先于 winCondition.maxJudgeRounds
+        if (this.maxJudgeRounds > 0) this.winCondition.maxJudgeRounds = this.maxJudgeRounds;
         this.turn = 0;
         this.judgeRound = 0;
         this.actionSeq = 0;
@@ -147,7 +208,13 @@ export default class Battle {
         this.seed = seed;
         this.random = new Random(MersenneTwister19937.seed(seed));
         this.runway = new Runway(() => this.random.real(0, 1));
-        this.energys = [new Energy(4), new Energy(4)]; // 初始每个队伍4点能量
+        // 初始能量按配置生成（默认等价于原 6v6：初始4点、上限8、进度满5回5点）
+        this.energys = [0, 1].map(() => new Energy(
+            this.energyConfig.initNum,
+            this.energyConfig.maxNum,
+            this.energyConfig.recoverAmount,
+            this.energyConfig.progressGoal,
+        ));
         this.buffs = [];
         this.fakeTurns = [];
         this.extraTurns = [];
@@ -162,17 +229,19 @@ export default class Battle {
         this.fields[0] = new Array(9).fill(0);
         this.fields[1] = new Array(9).fill(0);
 
-        // 计算每个队伍的数据起始索引
-        let team0Count = 0;
-        let team1Count = 0;
-        datas.forEach(d => {
-            if (d.teamId === 0) team0Count++;
-            else if (d.teamId === 1) team1Count++;
-        });
-        const team1StartIndex = team0Count;
+        // 每队上场主力数上限：options.teamSizes 显式指定时以它为准，否则最多 6
+        const explicitSizes = options && options.teamSizes;
+        const maxFighters: [number, number] = [0, 1].map(i => {
+            const v = explicitSizes ? Number(explicitSizes[i]) : NaN;
+            return Number.isFinite(v) && v > 0 ? Math.min(6, Math.floor(v)) : 6;
+        }) as [number, number];
+
+        // 每队的位置分配计数器：上场主力按序占 0..N-1，替补/应援固定占 6、7
+        const fighterIdx: [number, number] = [0, 0];
+        const reserveIdx: [number, number] = [0, 0];
 
         // 初始化实体
-        forEach(datas, (data, arrayIndex) => {
+        forEach(datas, (data) => {
             if (data.teamId < 0 || data.teamId > 1) {
                 console.warn('存在无效实体数据，队伍id无效', data);
                 return;
@@ -182,9 +251,24 @@ export default class Battle {
                 console.warn('存在无效实体数据，实体no无效', data);
                 return;
             }
+            // 先确定落位，避免超编实体被注册进 entities / 行动条
+            // 上场主力：按队伍内先后顺序占 0..N-1（N 为该队上场人数，两侧可不同）
+            // 替补/应援：固定占 6、7，不参战、不计入存活与总血量，仅保留被动能力
+            const teamId = data.teamId;
+            let positionIndex: number;
+            if (data.isReserve) {
+                if (reserveIdx[teamId] >= 2) return; // 每队最多 2 个替补位（6替补、7应援），多余的丢弃
+                positionIndex = 6 + reserveIdx[teamId];
+                reserveIdx[teamId] += 1;
+            } else {
+                if (fighterIdx[teamId] >= maxFighters[teamId]) return; // 超出该队上场人数上限的丢弃
+                positionIndex = fighterIdx[teamId];
+                fighterIdx[teamId] += 1;
+            }
+
             const entity = builder();
 
-            entity.setTeam(data.teamId);
+            entity.setTeam(teamId);
             entity.waitInput = !!data.waitInput;
             // 设置实体属性
             if (data.max_hp && data.max_hp >= 1 && data.max_hp <= 1e10) entity.setProperty(BattleProperties.MAX_HP, data.max_hp);
@@ -207,12 +291,7 @@ export default class Battle {
                 entity.setData('isReserve', 'true');
             }
             
-            // 根据数据在数组中的位置确定fields索引
-            // team0的数据在索引0到team1StartIndex-1，team1的数据在team1StartIndex之后
-            const positionIndex = data.teamId === 0 
-                ? arrayIndex 
-                : arrayIndex - team1StartIndex;
-            this.fields[entity.teamId][positionIndex] = entity.entityId;
+            this.fields[teamId][positionIndex] = entity.entityId;
             
             // 应用御魂效果（支持多个御魂）
             if (data.soulIds && data.soulIds.length > 0) {
@@ -225,6 +304,10 @@ export default class Battle {
             // 同步生命值到最大（使用getComputedProperty来获取包括御魂加成在内的最大生命值）
             entity.hp = this.getComputedProperty(entity.entityId, BattleProperties.MAX_HP);
         });
+        // 每队上场人数 = 实际落位的上场主力数（两侧可不相等）
+        // 与显式配置取交集：配置了 N 但数据不足时以实际数据为准，数据超编时以配置为准
+        this.teamSizes = [0, 1].map(i => Math.max(1, Math.min(maxFighters[i], fighterIdx[i]))) as [number, number];
+
         this.fieldSize = 8;
         this.taskCounter = 0;
         // 初始化根任务
@@ -386,16 +469,38 @@ export default class Battle {
     }
 
     /**
+     * 获取某队的上场人数（两侧可不相等）
+     * 越界时回退 6，保证旧调用方安全
+     */
+    getTeamSize(teamId: number): number {
+        const sizes = this.teamSizes;
+        if (!sizes || teamId < 0 || teamId > 1) return 6;
+        const n = Number(sizes[teamId]);
+        if (!Number.isFinite(n)) return 6;
+        return Math.min(6, Math.max(1, Math.floor(n)));
+    }
+
+    /**
+     * 判断某个位置是否属于该队的上场主力位（不含替补6/7与召唤位8）
+     */
+    isFieldFighter(teamId: number, pos: number): boolean {
+        if (pos < 0) return false;
+        return pos < this.getTeamSize(teamId);
+    }
+
+    /**
      * 判断胜负
-     * 只判断上场的前6个位置（不包括替补和应援）
+     * 只判断每队各自的上场位置（不包括替补和应援，两侧人数可不相等）
      */
     judgeWin() {
         const entityCounter: [number, number] = [0, 0];
         
-        // 只检查前6个位置（上场角色），不包括替补(位置6)和应援(位置7)
+        // 只检查每队各自的上场位置（该队上场人数为 teamSizes[teamId]）
+        // 替补(位置6)、应援(位置7)、召唤物(位置8)均不计入
         for (let teamId = 0; teamId < 2; teamId++) {
             const field = this.fields[teamId];
-            for (let pos = 0; pos < 6; pos++) {
+            const size = this.getTeamSize(teamId);
+            for (let pos = 0; pos < size; pos++) {
                 const entityId = field[pos];
                 if (entityId) {
                     const entity = this.getEntity(entityId);
@@ -436,6 +541,85 @@ export default class Battle {
         if (this.isEnd) {
             JudgeFlagManager.getInstance().clearJudgeFlag(this);
         }
+    }
+
+    /**
+     * 按"在场总血量"判定胜负（用于达到裁判旗回合上限时结算）
+     * 统计每队各自上场位置（取该队上场人数，两侧可不相等）中仍存活单位的当前 HP 之和。
+     * 替补(6)、应援(7)、召唤物(8)均不计入。
+     * 若一方全员阵亡（在场 0 人），则直接判另一方胜（沿用原逻辑优先）。
+     * 双方均有人且总血量相等 => 平局。
+     */
+    judgeWinByHp() {
+        if (this.isEnd) return;
+
+        const sumHp = (teamId: number): { alive: number; totalHp: number } => {
+            let alive = 0;
+            let totalHp = 0;
+            const field = this.fields[teamId];
+            const size = this.getTeamSize(teamId);
+            for (let pos = 0; pos < size; pos++) {
+                const entityId = field[pos];
+                if (!entityId) continue;
+                const entity = this.getEntity(entityId);
+                if (entity && !entity.dead) {
+                    alive += 1;
+                    totalHp += (entity.hp || 0);
+                }
+            }
+            return { alive, totalHp };
+        };
+
+        const t0 = sumHp(0);
+        const t1 = sumHp(1);
+
+        this.flushPendingDamageLogs();
+        this.flushPendingBuffLogs();
+
+        // 一方全灭优先判负
+        if (t0.alive === 0 && t1.alive > 0) {
+            this.addEventLog('info', `裁判旗回合达上限，队伍2（在场总血量 ${Math.round(t1.totalHp)}）获胜！`);
+            this.isEnd = true;
+            this.winner = 1;
+        } else if (t1.alive === 0 && t0.alive > 0) {
+            this.addEventLog('info', `裁判旗回合达上限，队伍1（在场总血量 ${Math.round(t0.totalHp)}）获胜！`);
+            this.isEnd = true;
+            this.winner = 0;
+        } else if (t0.alive === 0 && t1.alive === 0) {
+            this.addEventLog('info', `裁判旗回合达上限，双方均全灭，平局！`);
+            this.isEnd = true;
+            this.winner = -1;
+        } else if (t0.totalHp > t1.totalHp) {
+            this.addEventLog('info', `裁判旗回合达上限，按在场总血量判定（${t0.alive}人 vs ${t1.alive}人）：队伍1（${Math.round(t0.totalHp)}）胜队伍2（${Math.round(t1.totalHp)}）`);
+            this.isEnd = true;
+            this.winner = 0;
+        } else if (t1.totalHp > t0.totalHp) {
+            this.addEventLog('info', `裁判旗回合达上限，按在场总血量判定（${t0.alive}人 vs ${t1.alive}人）：队伍2（${Math.round(t1.totalHp)}）胜队伍1（${Math.round(t0.totalHp)}）`);
+            this.isEnd = true;
+            this.winner = 1;
+        } else {
+            this.addEventLog('info', `裁判旗回合达上限，双方在场总血量相等（${Math.round(t0.totalHp)}），平局！`);
+            this.isEnd = true;
+            this.winner = -1;
+        }
+
+        if (this.isEnd) {
+            JudgeFlagManager.getInstance().clearJudgeFlag(this);
+        }
+    }
+
+    /**
+     * 检查是否达到裁判旗回合上限；达到则按总血量结算并结束战斗
+     * 在每次裁判旗进入新回合（judgeRound 自增）后调用
+     * @returns 是否已结束
+     */
+    checkMaxJudgeRounds(): boolean {
+        const limit = (this.winCondition && this.winCondition.maxJudgeRounds) || this.maxJudgeRounds || 0;
+        if (limit > 0 && this.judgeRound >= limit) {
+            this.judgeWinByHp();
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -506,7 +690,8 @@ export default class Battle {
             if (!isConfusion && e.teamId === teamId) return; // 不是混乱状态下不能打自己人
             // 使用角色在fields数组中的实际位置索引，而不是默认最佳位置属性
             const actualPosition = this.fields[e.teamId].indexOf(e.entityId);
-            if (actualPosition < 0 || actualPosition > 5) return; // 只攻击教练0和主力角色（先锋1-大将5），过滤替补6和应援7
+            // 只攻击该队的上场主力位（按该队实际上场人数），过滤替补6、应援7与召唤物8
+            if (actualPosition < 0 || !this.isFieldFighter(e.teamId, actualPosition)) return;
             ret.push(e);
         });
 
@@ -636,8 +821,16 @@ export default class Battle {
      */
     canCost(teamId: number, count: number): boolean {
         if (teamId < 0 || teamId > 1) return false;
+        if (this.energyConfig && this.energyConfig.infinite) return true;
 
         return this.energys[teamId].num >= count;
+    }
+
+    /**
+     * 是否为无限能量模式
+     */
+    isInfiniteEnergy(): boolean {
+        return !!(this.energyConfig && this.energyConfig.infinite);
     }
 
     /**
