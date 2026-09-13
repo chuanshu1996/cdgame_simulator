@@ -88,7 +88,7 @@ export const SKILL_TAGS: SkillTagDef[] = [
         name: '间接伤害',
         category: '伤害',
         keywords: ['间接伤害'],
-        description: '不触发敌方御魂，0 防必暴击，且无法被分摊的伤害',
+        description: '正常计算防御（防御越高伤害越低），0 防必暴击（无视自身暴击率），不触发攻击方与受击方御魂，且无法被分摊的伤害',
     },
     {
         name: '溢出伤害',

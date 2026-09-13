@@ -81,22 +81,16 @@ export const yorukuchi_yayoi_skill3: Skill = {
                 .end();
             attacks.push(attack);
             
-            const sourceEntity = battle.getEntity(sourceId);
-            if (sourceEntity) {
-                const eftHit = battle.getComputedProperty(sourceId, BattleProperties.EFT_HIT) || 0;
-                const confusionProbability = 0.25 + eftHit;
-                
-                if (battle.testHit(confusionProbability)) {
-                    const confusionBuff = Buff.build(sourceId, enemy.entityId)
-                        .name('混乱', 1)
-                        .control(Control.CONFUSION)
-                        .countDown(1)
-                        .debuff()
-                        .end();
-                    battle.actionAddBuff(confusionBuff, Reasons.SKILL);
-                    battle.log(`【${enemy.name}】被混乱，持续1回合`);
-                }
-            }
+            // 施加混乱（基础概率 25%；效果命中/抵抗由 add-buff 框架统一计算）
+            const confusionBuff = Buff.build(sourceId, enemy.entityId)
+                .name('混乱', 1)
+                .control(Control.CONFUSION)
+                .countDown(1)
+                .debuff()
+                .probability(0.25)
+                .end();
+            battle.actionAddBuff(confusionBuff, Reasons.SKILL);
+            battle.log(`【${enemy.name}】被混乱，持续1回合`);
         });
         
         battle.actionAttack(attacks);

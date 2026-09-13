@@ -11,13 +11,21 @@ import {SelectableSkill, SkillSelection} from "../skill";
  */
 export class WaitInputProcessing{
     selection: SkillSelection | null = null; // 技能选择
+    /**
+     * 当前需要做出选择的实体ID。
+     * 驱动方（AI/玩家输入）依赖它来判断"现在轮到谁行动"。
+     * 缺失时驱动方会退回 battle.currentId（该字段恒为0），
+     * 导致用错误的实体去查询AI与技能。
+     */
+    currentId: number;
 
     /**
      * 构造函数
      * @param skills 可选技能列表
+     * @param currentId 当前行动的实体ID
      */
-    constructor(public skills: SelectableSkill[]) {
-
+    constructor(public skills: SelectableSkill[], currentId: number) {
+        this.currentId = currentId;
     }
 }
 

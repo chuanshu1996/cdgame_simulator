@@ -69,6 +69,20 @@ npx wrangler d1 execute cdgame --file=seed.sql --remote
 管理员在线上编辑后存于 D1；`sync-herodata.yml` 每日/手动从 D1 导出写回
 `core/fixtures/hero-data.ts` 并推送，触发 `deploy.yml` 重建 Pages。
 
+### ⚠️ 数据安全：hero-data.ts 禁止手改
+
+`cdgame_simulator/core/fixtures/hero-data.ts` 是 **D1 的同步快照**，**不是手工编辑的数据源**：
+
+- **线上选手数据以 D1（`cdgame_api` 库）为准**；`hero-data.ts` 只是构建期快照，本地 `server.js` 也只把它当初始文件。
+- 任何人**在线上「卡牌属性」页编辑后，数据落在 D1**；`sync-herodata.yml`（每天 UTC 03:17 自动 + 手动 `workflow_dispatch`）会把 D1 全量导回 `hero-data.ts` 并推库。
+- 因此**不要直接在 `hero-data.ts` 里手改选手字段**（如 `region` 代表地、`label` 标签、属性等）：
+  - 手改会被下一次 D1 同步**静默覆盖**；
+  - 手改又推库时，会**反向覆盖 D1 里管理员的线上编辑**，造成数据丢失。
+- 正确做法：在**线上「卡牌属性」页**编辑（写 D1），或本地改完走「手动同步」把本地快照上传到 D1。
+- 当前记录规模（同步后）：176 条 / `region` 34 / `label` 33 / `school` 48。这两列是「选手列表」筛选与新增列的数据来源，手改错位会直接让页面新列读空。
+
+> 调试/校准用：本地临时跑 `curl -fsS -H 'Authorization: Bearer <管理密码MD5>' 'https://cdgame-api.pages.dev/api/hero-data/export' -o cdgame_simulator/core/fixtures/hero-data.ts` 拉最新快照即可（注意 PowerShell 用单引号包裹 `-H` 参数，cmd.exe 双引号会截断 401）。
+
 ## 致谢
 
 ### 夜雀届

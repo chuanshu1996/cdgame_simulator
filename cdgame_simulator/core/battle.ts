@@ -223,7 +223,8 @@ export default class Battle {
         this.pendingBuffLogs = new Map();
         this.currentSkillName = '';
         this.fieldSize = 0;
-        this.battleId = Date.now() + Math.floor(Math.random() * 10000); // 生成唯一的战斗ID
+        // 由种子派生，保证同种子可复现；随机数仅用于区分同种子下的不同实例
+        this.battleId = seed + Math.floor(this.random.real(0, 1) * 10000);
 
         // 初始化fields数组，预填充0（位置0-8：主力0-5，替补6，应援7，召唤位8）
         this.fields[0] = new Array(9).fill(0);

@@ -7,6 +7,9 @@ import store from './store';
 import JsonTree from 'vue-json-tree';
 
 Vue.config.productionTip = false;
+Vue.config.errorHandler = (err, vm, info) => {
+    console.error('[Vue errorHandler]', err, info, vm);
+};
 
 Vue.use(Antd);
 Vue.component('json-tree', JsonTree);

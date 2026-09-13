@@ -110,15 +110,27 @@
                         <a-step title="数据准备" description="获取攻击者与目标属性，计算基础伤害" />
                         <a-step title="攻击前事件" description="触发 WILL_ATTACK、WILL_BE_ATTACKED 事件" />
                         <a-step title="暴击判定" description="根据暴击率判定是否暴击，触发 CRI 事件" />
-                        <a-step title="伤害计算" description="计算最终伤害，护盾结算吸收伤害" />
+                        <a-step title="伤害计算" description="计算最终伤害（含伤害倍率、御魂修正、波动系数）" />
                         <a-step title="伤害结算" description="扣除生命值，处理死亡逻辑" />
                         <a-step title="伤害后事件" description="触发 HAS_DAMAGED、HAS_BEEN_DAMAGED 事件" />
                         <a-step title="攻击后事件" description="触发 HAS_ATTACKED、HAS_BEEN_ATTACKED 事件" />
                     </a-steps>
                     
-                    <a-alert message="护盾结算" type="warning" show-icon class="shield-alert">
+                    <a-divider id="hit-resist" orientation="left">效果命中与效果抵抗</a-divider>
+                    <a-card title="控制 / 减益命中对抗" size="small">
+                        <p>技能描述中标注「<strong>受效果命中加成</strong>」的控制 / 减益效果，实际命中按下述对抗模型结算：</p>
+                        <ul class="rule-list">
+                            <li>实际命中率 = 基础概率 × (1 + 效果命中) ÷ (1 + 效果抵抗)</li>
+                            <li><strong>效果命中（EFT_HIT）</strong>与<strong>效果抵抗（EFT_RES）</strong>均来自卡牌属性，以小数存储（0.1 = 10%）。</li>
+                            <li>最终施加概率 = <strong>基础概率 ×(1+效果命中) ÷(1+效果抵抗)</strong>；以此概率掷骰，未命中或被抵抗则该控制 / 减益无效。</li>
+                            <li>基础概率本身已含「受效果命中加成」的乘法关系，请勿在技能内重复叠加效果命中；效果命中 / 效果抵抗在数据中以小数存储（0.1 = 10%）。</li>
+                        </ul>
+                    </a-card>
+
+                    <a-alert message="护盾状态：优先吸收伤害" type="info" show-icon class="shield-alert">
                         <template slot="description">
-                            护盾在伤害结算前吸收伤害：获取目标所有护盾Buff → 按顺序用护盾值抵扣伤害 → 护盾值耗尽后移除护盾Buff → 剩余伤害扣除生命值
+                            护盾会<strong>优先吸收伤害</strong>：受到伤害时，目标身上存在的护盾（如【最终祈愿】【世界风采】【巫女之舞】【六仙女】赋予）会按盾值抵扣伤害，
+                            抵扣后剩余伤害才扣除生命值；盾值耗尽则护盾消失。攻击若声明「忽略护盾」则直接穿透。
                         </template>
                     </a-alert>
                     
@@ -130,7 +142,8 @@
                                 <ul class="rule-list">
                                     <li>暴击率由 <strong>CRI</strong> 属性决定</li>
                                     <li>暴击伤害由 <strong>CRI_DMG</strong> 属性决定（默认150%）</li>
-                                    <li><strong>间接伤害</strong>：目标防御为0时必然暴击</li>
+                                    <li><strong>间接伤害</strong>：正常计算防御（防御越高伤害越低）；目标防御为0时<strong>必然暴击</strong>（无视自身暴击率）；不触发攻击方与受击方的任何御魂效果，且<strong>无法被分摊</strong></li>
+                                    <li><strong>真实伤害</strong>：<strong>无视对方所有防御</strong>（防御取固定值），但<strong>不会暴击</strong></li>
                                     <li>暴击触发 <strong>CRI</strong> 事件</li>
                                 </ul>
                             </a-card>
@@ -174,16 +187,33 @@
                             </a-card>
                         </a-tab-pane>
                     </a-tabs>
-                    
+
                     <a-divider id="effect-hit" orientation="left">效果命中与抵抗</a-divider>
+                    
+                    <a-alert message="命中判定：两段独立判定的乘法模型" type="warning" show-icon style="margin-bottom: 16px;">
+                        <template slot="description">
+                            实际实现<strong>不是</strong>"基础概率 + 效果命中 − 效果抵抗"的加法模型，
+                            而是<strong>两段独立随机判定</strong>：先判命中，再判抵抗，两者都通过才会生效。
+                        </template>
+                    </a-alert>
                     
                     <a-card class="formula-card">
                         <div class="formula-box">
-                            <div class="formula-title">效果命中公式</div>
+                            <div class="formula-title">效果命中公式（实际实现）</div>
                             <div class="formula-content">
-                                实际命中概率 = 基础概率 + 效果命中 - 效果抵抗
+                                命中概率 P = 基础概率 × (1 + 效果命中 ÷ 100)<br />
+                                抵抗概率 R = P ÷ (1 + 效果抵抗 ÷ 100)<br />
+                                生效需连续通过：先以 P 判定命中，再以 R 判定未被抵抗
                             </div>
                         </div>
+                    </a-card>
+                    
+                    <a-card title="实测对照" size="small" style="margin-top: 16px;">
+                        <ul class="rule-list">
+                            <li>基础概率 100% 时，效果抵抗<strong>无法</strong>使其落空（P=1，两次判定必然通过）</li>
+                            <li>基础概率 50%、双方命中/抵抗均为 0 时，实测生效约 <strong>50%</strong>（非加法模型下仍为 50%）</li>
+                            <li>效果抵抗对<strong>基础概率 100% 的技能无效</strong>，这是当前实现的既有行为</li>
+                        </ul>
                     </a-card>
                     
                     <a-row :gutter="16" style="margin-top: 16px;">
@@ -301,12 +331,19 @@
                                     <span class="energy-slot">□</span>
                                 </div>
                                 <p style="margin-top: 8px; font-size: 12px; color: #666;">
-                                    进度满5格 → 增加预备能量 → 进度归零
+                                    进度满5格 → 结算一次恢复 → 进度归零
                                 </p>
                             </a-card>
                         </a-col>
                     </a-row>
                     
+                    <a-alert message="实测提示：能量会迅速饱和" type="warning" show-icon style="margin-top: 16px;">
+                        <template slot="description">
+                            每回合推进1格进度，满5格时结算一次恢复。实测中能量常在开局数回合内即达到
+                            <strong>8点上限</strong>并长期维持满能量状态，
+                            因此"能量不足"在中后期几乎不会成为限制，技能选择主要由AI优先级决定。
+                        </template>
+                    </a-alert>
                     <a-card title="能量消耗" size="small" style="margin-top: 16px;">
                         <ul class="rule-list">
                             <li>技能消耗能量：0-3点不等</li>
@@ -335,7 +372,7 @@
                     
                     <a-alert message="注意" type="warning" show-icon style="margin-top: 16px;">
                         <template slot="description">
-                            召唤物（位置7）是否存活<strong>不影响</strong>胜负判定
+                            召唤物位于<strong>位置8</strong>（独立召唤位），其是否存活<strong>不影响</strong>胜负判定。位置6为替补、位置7为应援，同样不参与判定。
                         </template>
                     </a-alert>
                 </section>
@@ -373,7 +410,6 @@ export default {
             ],
             controlColumns: [
                 { title: '控制类型', dataIndex: 'type', width: 100 },
-                { title: '效果', dataIndex: 'effect' },
                 { title: '可行动', dataIndex: 'canAct', width: 100, scopedSlots: { customRender: 'canAct' } },
             ],
             controlData: [
@@ -385,6 +421,8 @@ export default {
                 { key: '6', type: '沉默', effect: '无法使用技能', canAct: true },
                 { key: '7', type: '嘲讽', effect: '强制攻击嘲讽来源', canAct: true },
                 { key: '8', type: '禁锢', effect: '无法被位移', canAct: true },
+                { key: '9', type: '害怕', effect: '回合开始时50%概率无法行动（每次判定独立）', canAct: true },
+                { key: '10', type: '着迷', effect: '无法使用攻击型技能（目标为敌方的技能）', canAct: true },
             ],
             buffParamColumns: [
                 { title: '参数', dataIndex: 'param', width: 150 },
@@ -433,7 +471,8 @@ export default {
                 { key: '4', position: '4', name: '副将', desc: '主力位置4', judge: true },
                 { key: '5', position: '5', name: '大将', desc: '主力位置5', judge: true },
                 { key: '6', position: '6', name: '替补', desc: '替补位置', judge: false },
-                { key: '7', position: '7', name: '应援/召唤物', desc: '应援或召唤物位置', judge: false },
+                { key: '7', position: '7', name: '应援', desc: '应援位置', judge: false },
+                { key: '8', position: '8', name: '召唤物', desc: '召唤物专属位置', judge: false },
             ],
         }
     },

@@ -177,9 +177,8 @@ export const honnai_naruka_skill2: Skill = {
                 
                 // 祈愿人数 * 10% 的概率不消耗能量
                 const probability = Math.min(qiyuanCount * 0.1, 1.0);
-                const roll = Math.random();
-                
-                if (roll < probability) {
+
+                if (battle.testHit(probability)) {
                     const originalCost = skillData.cost;
                     skillData.cost = 0;
                     battle.log(`【${skillUser.name}】的能量技能因【策略变化】效果（祈愿${qiyuanCount}人，概率${Math.round(probability * 100)}%）不消耗能量（原消耗${originalCost}）`);

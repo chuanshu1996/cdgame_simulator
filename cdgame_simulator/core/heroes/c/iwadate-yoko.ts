@@ -203,10 +203,8 @@ export const iwadate_yoko_skill3: Skill = {
         // 获取敌方全体
         const enemies = battle.getEnemies(sourceId);
         
-        // 计算嘲讽概率（30% + 效果命中）
-        const baseProbability = 0.3;
-        const effectHit = battle.getComputedProperty(sourceId, BattleProperties.EFT_HIT);
-        const finalProbability = baseProbability * (1 + effectHit);
+        // 计算嘲讽概率（30% 基础概率；效果命中/抵抗由 add-buff 框架统一计算）
+        const finalProbability = 0.3;
         
         // 对敌方全体施加嘲讽
         for (const enemy of enemies) {

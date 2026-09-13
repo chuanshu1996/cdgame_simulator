@@ -68,6 +68,12 @@ const routes = [
         meta: { adminOnly: true },
     },
     {
+        path: '/card-win-rate',
+        name: 'CardWinRate',
+        component: CardWinRate,
+        meta: { adminOnly: true },
+    },
+    {
         path: '/soul',
         name: 'Soul',
         component: Soul,

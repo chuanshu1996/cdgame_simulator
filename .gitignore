@@ -44,3 +44,6 @@ dev_*.log
 cdgame_simulator/*.out.log
 cdgame_simulator/dev_*.log
 
+# 技能测试探针 .probe 的编译产物（源码保留，产物不入库）
+cdgame_simulator/.probe/out/
+

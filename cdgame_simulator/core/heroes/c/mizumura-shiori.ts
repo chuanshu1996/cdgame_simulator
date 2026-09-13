@@ -30,13 +30,14 @@ function hasMakeupMirror(battle: Battle, teamId: number): boolean {
 // 构建着迷debuff
 // 【着迷】：持续到永久，每回合有50%概率无法进行攻击（但可以释放非攻击型技能）
 // 这是一种控制效果，限制目标行动
-function buildCharmedDebuff(sourceId: number, targetId: number): Buff {
+function buildCharmedDebuff(sourceId: number, targetId: number, baseProbability: number): Buff {
     return Buff.build(sourceId, targetId)
         .name(CHARMED_BUFF_NAME, 1)
         .countDown(-1) // 持续到永久
         .noRemove() // 不可清除
         .control(Control.DIZZY) // 设置为控制效果（限制行动）
         .debuff()
+        .probability(baseProbability) // 基础概率；效果命中/抵抗由 add-buff 框架统一计算
         .end();
 }
 
@@ -119,28 +120,21 @@ export const mizumura_shiori_skill2: Skill = {
                         const attacker = battle.getEntity(attackerId);
                         if (!attacker || attacker.teamId === source.teamId) continue; // 同队不触发
                         
-                        // 计算着迷概率
+                        // 计算着迷概率（基础概率；效果命中/抵抗由 add-buff 框架统一计算）
                         let baseProbability = 0.1;
                         if (hasMakeupMirror(battle, source.teamId)) {
                             baseProbability = 0.15;
                         }
                         
-                        // 加上效果命中
-                        const effectHit = battle.getComputedProperty(data.skillOwnerId, BattleProperties.EFT_HIT);
-                        const finalProbability = baseProbability * (1 + effectHit);
+                        // 施加着迷debuff（命中/抵抗由框架判定）
+                        battle.actionAddBuff(buildCharmedDebuff(data.skillOwnerId, attackerId, baseProbability), Reasons.SKILL);
+                        battle.log(`【${source.name}】的【迷人妆容】触发，【${attacker.name}】获得【着迷】debuff（基础概率${Math.floor(baseProbability * 100)}%）`);
                         
-                        // 检查是否命中
-                        if (battle.testHit(finalProbability)) {
-                            // 施加着迷debuff
-                            battle.actionAddBuff(buildCharmedDebuff(data.skillOwnerId, attackerId), Reasons.SKILL);
-                            battle.log(`【${source.name}】的【迷人妆容】触发，【${attacker.name}】获得【着迷】debuff（概率${Math.floor(finalProbability * 100)}%）`);
-                            
-                            battle.addEventLog('skill', `【${source.name}】触发【迷人妆容】，【${attacker.name}】获得【着迷】`, {
-                                sourceId: data.skillOwnerId,
-                                targetId: attackerId,
-                                probability: Math.floor(finalProbability * 100)
-                            });
-                        }
+                        battle.addEventLog('skill', `【${source.name}】触发【迷人妆容】，【${attacker.name}】获得【着迷】`, {
+                            sourceId: data.skillOwnerId,
+                            targetId: attackerId,
+                            probability: Math.floor(baseProbability * 100)
+                        });
                     }
                 }
                 

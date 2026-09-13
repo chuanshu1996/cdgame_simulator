@@ -62,6 +62,7 @@ function buildCryingSlowDebuff(sourceId: number, targetId: number, stacks: numbe
         .countDown(-1)
         .noRemove()
         .debuff()
+        .probability(0.55) // 基础概率；效果命中/抵抗由 add-buff 框架统一计算
         .buffAP(BattleProperties.SPD, EffectTypes.FIXED, -5 * stacks)
         .end();
 }
@@ -254,34 +255,27 @@ export const abuku_riko_skill3: Skill = {
         });
         battle.actionAttack(attackInfos);
         
-        // 计算减速概率：55% + 效果命中
-        const baseProbability = 0.55;
-        const effectHit = battle.getComputedProperty(sourceId, BattleProperties.EFT_HIT);
-        const finalProbability = baseProbability * (1 + effectHit);
-        
-        // 对敌方全体施加哭泣减速debuff
+        // 对敌方全体施加哭泣减速debuff（命中/抵抗由 add-buff 框架统一计算）
         for (const enemy of enemies) {
-            if (Math.random() < finalProbability) {
-                let currentStacks = getCryingSlowStacks(enemy);
-                
-                if (currentStacks < 5) {
-                    // 移除旧的哭泣减速debuff
-                    const oldDebuffs = battle.filterBuffByName(enemy.entityId, CRYING_SLOW_DEBUFF_NAME);
-                    for (const oldDebuff of oldDebuffs) {
-                        battle.actionRemoveBuff(oldDebuff, Reasons.SKILL);
-                    }
-                    
-                    currentStacks += 1;
-                    setCryingSlowStacks(enemy, currentStacks);
-                    
-                    // 添加新的叠加debuff
-                    const newDebuff = buildCryingSlowDebuff(sourceId, enemy.entityId, currentStacks);
-                    battle.actionAddBuff(newDebuff, Reasons.SKILL);
-                    
-                    battle.log(`【${enemy.name}】获得【哭泣减速】（第${currentStacks}层），速度-${5 * currentStacks}`);
-                } else {
-                    battle.log(`【${enemy.name}】的【哭泣减速】已达到最大层数（5层）`);
+            let currentStacks = getCryingSlowStacks(enemy);
+            
+            if (currentStacks < 5) {
+                // 移除旧的哭泣减速debuff
+                const oldDebuffs = battle.filterBuffByName(enemy.entityId, CRYING_SLOW_DEBUFF_NAME);
+                for (const oldDebuff of oldDebuffs) {
+                    battle.actionRemoveBuff(oldDebuff, Reasons.SKILL);
                 }
+                
+                currentStacks += 1;
+                setCryingSlowStacks(enemy, currentStacks);
+                
+                // 添加新的叠加debuff
+                const newDebuff = buildCryingSlowDebuff(sourceId, enemy.entityId, currentStacks);
+                battle.actionAddBuff(newDebuff, Reasons.SKILL);
+                
+                battle.log(`【${enemy.name}】获得【哭泣减速】（第${currentStacks}层），速度-${5 * currentStacks}`);
+            } else {
+                battle.log(`【${enemy.name}】的【哭泣减速】已达到最大层数（5层）`);
             }
         }
         

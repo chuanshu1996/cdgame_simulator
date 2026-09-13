@@ -222,7 +222,7 @@ export const karisume_tomoe_skill3: Skill = {
             
             if (entityDebuffs.length > 0) {
                 // 随机选择一个负面效果驱散
-                const randomIndex = Math.floor(Math.random() * entityDebuffs.length);
+                const randomIndex = battle.random.integer(0, entityDebuffs.length - 1);
                 const randomDebuff = entityDebuffs[randomIndex];
                 battle.actionRemoveBuff(randomDebuff, Reasons.SKILL);
                 battle.log(`【${entity.name}】驱散了1个负面效果【${randomDebuff.name}】`);

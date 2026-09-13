@@ -302,7 +302,7 @@ export const shogakusei_rei_skill3: Skill = {
                 
                 if (hasFear) {
                     // 50%几率无法行动
-                    if (Math.random() < 0.5) {
+                    if (battle.testHit(0.5)) {
                         // 标记本回合无法行动
                         entity.setData('fear_cannot_action', 'true');
                         battle.log(`【${entity.name}】因【害怕】无法行动！`);

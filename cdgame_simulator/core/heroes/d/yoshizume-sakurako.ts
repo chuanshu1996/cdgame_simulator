@@ -44,8 +44,8 @@ export const yoshizume_sakurako_skill1: Skill = {
         
         // 计算眩晕概率
         const baseProbability = 0.05;
-        const effectHit = battle.getComputedProperty(sourceId, BattleProperties.EFT_HIT);
-        const finalProbability = baseProbability * (1 + effectHit);
+        // 效果命中/抵抗由 add-buff 框架统一计算，此处仅传基础概率
+        const finalProbability = baseProbability;
         
         // 造成伤害
         battle.actionAttack(
@@ -97,8 +97,7 @@ export const yoshizume_sakurako_skill2: Skill = {
                         if (source && source.teamId !== entity.teamId) {
                             // 计算眩晕概率
                             const baseProbability = 0.15;
-                            const effectHit = battle.getComputedProperty(data.skillOwnerId, BattleProperties.EFT_HIT);
-                            const finalProbability = baseProbability * (1 + effectHit);
+                            const finalProbability = baseProbability;
                             
                             // 尝试添加眩晕buff
                             const stunBuff = buildStunBuff(data.skillOwnerId, sourceId, finalProbability);
@@ -174,8 +173,7 @@ export const yoshizume_sakurako_skill3: Skill = {
         
         // 计算眩晕概率
         const baseProbability = 0.08;
-        const effectHit = battle.getComputedProperty(sourceId, BattleProperties.EFT_HIT);
-        const finalProbability = baseProbability * (1 + effectHit);
+        const finalProbability = baseProbability;
         
         // 攻击3次
         for (let i = 0; i < 3; i++) {

@@ -20,6 +20,7 @@ function buildSilenceDebuff(sourceId: number, targetId: number): Buff {
         .countDown(1)
         .control(Control.SILENT)
         .debuff()
+        .probability(0.35) // 基础概率；效果命中/抵抗由 add-buff 框架统一计算
         .end();
 }
 
@@ -196,18 +197,11 @@ export const shogaku_nijoizumi_skill3: Skill = {
         });
         battle.actionAttack(attackInfos);
         
-        // 计算沉默概率：35% + 效果命中
-        const baseProbability = 0.35;
-        const effectHit = battle.getComputedProperty(sourceId, BattleProperties.EFT_HIT);
-        const finalProbability = baseProbability * (1 + effectHit);
-        
-        // 对造成伤害的敌方单位判定沉默
+        // 对造成伤害的敌方单位施加沉默（命中/抵抗由 add-buff 框架统一计算）
         for (const enemy of enemies) {
-            if (Math.random() < finalProbability) {
-                const silenceDebuff = buildSilenceDebuff(sourceId, enemy.entityId);
-                battle.actionAddBuff(silenceDebuff, Reasons.SKILL);
-                battle.log(`【${enemy.name}】被沉默，持续1回合`);
-            }
+            const silenceDebuff = buildSilenceDebuff(sourceId, enemy.entityId);
+            battle.actionAddBuff(silenceDebuff, Reasons.SKILL);
+            battle.log(`【${enemy.name}】被沉默，持续1回合`);
         }
         
         battle.log(`【${source.name}】使用【关门打雀】，对敌方全体造成100%攻击伤害`);

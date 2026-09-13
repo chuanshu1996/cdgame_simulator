@@ -312,7 +312,7 @@ export default function turnProcessor(battle: Battle, data: TurnProcessing, step
                     if (skills.length) {
                         if (currentEntity.waitInput) {
                             // 需要手动输入
-                            data.waitInput = new WaitInputProcessing(skills);
+                            data.waitInput = new WaitInputProcessing(skills, currentEntity.entityId);
                             battle.addProcessor(waitInputProcessor, data.waitInput, 'WaitInput');
                         }
                     }

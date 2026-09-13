@@ -2,7 +2,7 @@
  * 攻击任务处理器
  * 负责处理攻击逻辑，包括伤害计算、暴击判定、死亡处理等
  */
-import {Attack, AttackParams, Battle, BattleProperties, eps, EventCodes, Reasons} from "../";
+import {Attack, AttackParams, Battle, BattleProperties, BuffParams, eps, EventCodes, Reasons} from "../";
 import {SoulManager, SoulEffectType} from "../soul";
 import {applyJudgeFlagDamageMultiplier} from "../judge-flag";
 
@@ -110,8 +110,11 @@ export default function attackProcessor(battle: Battle, data: AttackProcessing, 
             if (!attackInfo) return 0; // 没有攻击信息，出错
             
             if (attack.hasParam(AttackParams.SHOULD_COMPUTE_CRI)) {
-                if (attack.hasParam(AttackParams.INDIRECT) && battle.getComputedProperty(target.entityId, BattleProperties.DEF) <= eps) {
-                    // 间接伤害 防御为0时必然暴击
+                if (attack.hasParam(AttackParams.REAL)) {
+                    // 真实伤害：无视防御，且不会暴击
+                    attackInfo.isCri = false;
+                } else if (attack.hasParam(AttackParams.INDIRECT) && battle.getComputedProperty(target.entityId, BattleProperties.DEF) <= eps) {
+                    // 间接伤害 防御为0时必然暴击（无视自身暴击率）
                     attackInfo.isCri = true;
                 } else {
                     // 测试是否暴击 - 使用暴击率(critical)而非暴击伤害(criticalDamage)
@@ -136,30 +139,41 @@ export default function attackProcessor(battle: Battle, data: AttackProcessing, 
             // 计算伤害公式攻击部
             const atk = attackInfo.damage * attack.rate * (attackInfo.isCri ? attackInfo.criticalDamage : 1) * 300;
             // 计算伤害公式防御部
-            const def = attackInfo.targetDefence + 300;
+            // 真实伤害：无视对方所有防御，防御取固定值
+            // 间接伤害：正常计算防御（防御越高伤害越低），不做任何减免
+            const def = attack.hasParam(AttackParams.REAL)
+                ? 300
+                : attackInfo.targetDefence + 300;
             // 计算伤害倍率（减伤增伤易伤等）
             const rate = (attackInfo.damageDealtBuff / attackInfo.damageDealtDebuff) *
                 (attackInfo.targetDamageTakenBuff / attackInfo.targetDamageTakenDebuff);
 
             // 计算御魂修正
-            const soulEnhancement = SoulManager.getDamageEnhancement(source);
-            const soulReduction = SoulManager.getDamageReduction(target);
-            const soulCorrection = soulEnhancement * soulReduction;
+            // 间接伤害：不触发攻击方与受击方的任何御魂效果
+            let soulCorrection: number;
+            if (attack.hasParam(AttackParams.INDIRECT)) {
+                soulCorrection = 1;
+                attack.addParam(AttackParams.NO_SHARE); // 间接伤害无法被分摊
+            } else {
+                const soulEnhancement = SoulManager.getDamageEnhancement(source);
+                const soulReduction = SoulManager.getDamageReduction(target);
+                soulCorrection = soulEnhancement * soulReduction;
 
-            // 如果有御魂减伤效果，添加日志
-            if (soulReduction < 1) {
-                const reductionPercent = Math.round((1 - soulReduction) * 100);
-                const soulNames = SoulManager.getEntitySouls(target)
-                    .filter(s => s.effects.some(e => e.type === SoulEffectType.DAMAGE_REDUCTION))
-                    .map(s => s.name)
-                    .join('、');
-                if (soulNames) {
-                    battle.log(`【${target.name}】的${soulNames}触发，减少${reductionPercent}%伤害`);
-                    battle.addEventLog('info', `【${target.name}】的${soulNames}触发，减少${reductionPercent}%伤害`, {
-                        targetId: target.entityId,
-                        reductionPercent,
-                        soulNames
-                    });
+                // 如果有御魂减伤效果，添加日志
+                if (soulReduction < 1) {
+                    const reductionPercent = Math.round((1 - soulReduction) * 100);
+                    const soulNames = SoulManager.getEntitySouls(target)
+                        .filter(s => s.effects.some(e => e.type === SoulEffectType.DAMAGE_REDUCTION))
+                        .map(s => s.name)
+                        .join('、');
+                    if (soulNames) {
+                        battle.log(`【${target.name}】的${soulNames}触发，减少${reductionPercent}%伤害`);
+                        battle.addEventLog('info', `【${target.name}】的${soulNames}触发，减少${reductionPercent}%伤害`, {
+                            targetId: target.entityId,
+                            reductionPercent,
+                            soulNames
+                        });
+                    }
                 }
             }
 
@@ -167,7 +181,26 @@ export default function attackProcessor(battle: Battle, data: AttackProcessing, 
             attackInfo.finalDamage = atk / def * rate * soulCorrection * FR;
             // 应用裁判旗伤害倍率
             attackInfo.finalDamage = applyJudgeFlagDamageMultiplier(battle, attackInfo.finalDamage);
-            //TODO: 计算盾的抵消伤害
+
+            // 计算盾的抵消伤害（护盾优先吸收，剩余部分再扣生命值）
+            // 真实伤害与间接伤害是否受护盾吸收：按通用规则，护盾可吸收任意伤害，除非攻击声明忽略护盾
+            if (!attack.hasParam(AttackParams.NO_SHIELD) && attackInfo.finalDamage > eps) {
+                const shieldBuffs = battle.buffs.filter(b =>
+                    b.ownerId === target.entityId &&
+                    b.hasParam(BuffParams.SHIELD) &&
+                    (b.shield ?? 0) > 0
+                );
+                for (const sb of shieldBuffs) {
+                    if (attackInfo.finalDamage <= eps) break;
+                    const absorbed = Math.min(sb.shield!, attackInfo.finalDamage);
+                    sb.shield = (sb.shield ?? 0) - absorbed;
+                    attackInfo.finalDamage -= absorbed;
+                    battle.log(`【${target.name}】的【${sb.name}】吸收了${Math.round(absorbed)}点伤害`);
+                    if ((sb.shield ?? 0) <= eps) {
+                        battle.actionRemoveBuff(sb, Reasons.RULE);
+                    }
+                }
+            }
 
             // 保存原始生命值和剩余生命值
             attackInfo.originHp = attackInfo.remainHp = target.hp;

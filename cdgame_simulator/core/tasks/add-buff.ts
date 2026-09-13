@@ -77,16 +77,17 @@ export default function addBuffProcessor(battle: Battle, data: AddBuffProcessing
             if (!target) return 0; // 全局Buff不需要命中计算
             if (typeof buff.probability !== 'number') return 0; // 没有概率值，出错
 
-            // 计算命中概率：基础命中×（1+效果命中）
-            const p = buff.probability * (1 + battle.getComputedProperty(source.entityId, BattleProperties.EFT_HIT) / 100);
-            const isHit = data.isHit = battle.testHit(p);
-            if (!isHit) return -1; // 未命中，结束处理
-            
-            // 计算抵抗概率：(1 + 效果抵抗)
-            const res = 1 + battle.getComputedProperty(target.entityId, BattleProperties.EFT_RES) / 100;
-            const isRes = data.isRes = battle.testHit(p / res);
-            if (isRes) { // 抵抗了
+            // 效果命中 vs 效果抵抗：最终概率 = 基础概率 × (1 + 效果命中) ÷ (1 + 效果抵抗)
+            // 注意：EFT_HIT/EFT_RES 在 hero-data.ts 中已存储为小数（如 0.1 表示 10%），不再除以 100。
+            const eftHit = battle.getComputedProperty(source.entityId, BattleProperties.EFT_HIT);
+            const eftRes = battle.getComputedProperty(target.entityId, BattleProperties.EFT_RES);
+            const finalP = buff.probability * (1 + eftHit) / (1 + eftRes);
+            const isHit = data.isHit = battle.testHit(finalP);
+            if (!isHit) { // 未命中或被抵抗，debuff 不生效
+                data.isRes = true;
                 battle.addEventProcessor(EventCodes.BUFF_RES, target.entityId, data);
+                battle.log(`【${target.name}】抵抗了【${buff.name}】`);
+                return -1; // 结束处理
             }
             return 4; // 进入下一步
         }

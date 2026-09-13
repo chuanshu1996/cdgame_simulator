@@ -161,24 +161,29 @@ export const sugi_no_ayumu_skill3: Skill = {
                     .end()
             );
             
-            // 50%概率清除对方一个增益效果
+            // 50%基础概率（受效果命中/抵抗影响）清除对方一个增益效果
             const baseProbability = 0.5;
-            const effectHit = battle.getComputedProperty(sourceId, BattleProperties.EFT_HIT);
-            const finalProbability = baseProbability * (1 + effectHit);
-            
-            if (battle.testHit(finalProbability)) {
-                // 查找敌方的增益buff
-                const buffs = battle.buffs.filter(buff => 
-                    buff.ownerId === enemy.entityId && 
-                    buff.params.includes(BuffParams.BUFF) && 
-                    !buff.params.includes(BuffParams.DEBUFF)
-                );
-                
-                if (buffs.length > 0) {
-                    // 随机选择一个增益buff并移除
-                    const buffToRemove = battle.getRandomOne(buffs);
-                    battle.actionRemoveBuff(buffToRemove, Reasons.SKILL);
-                    battle.log(`【${source.name}】的【大扫除】清除了【${enemy.name}】的【${buffToRemove.name}】buff`);
+            const eftHit = battle.getComputedProperty(sourceId, BattleProperties.EFT_HIT);
+            const eftRes = battle.getComputedProperty(enemy.entityId, BattleProperties.EFT_RES);
+            const p = baseProbability * (1 + eftHit);
+            if (battle.testHit(p)) {
+                // 命中后判定效果抵抗（与 add-buff 框架一致）
+                if (battle.testHit(p / (1 + eftRes))) {
+                    battle.log(`【${enemy.name}】抵抗了【大扫除】的驱散`);
+                } else {
+                    // 查找敌方的增益buff
+                    const buffs = battle.buffs.filter(buff =>
+                        buff.ownerId === enemy.entityId &&
+                        buff.params.includes(BuffParams.BUFF) &&
+                        !buff.params.includes(BuffParams.DEBUFF)
+                    );
+
+                    if (buffs.length > 0) {
+                        // 随机选择一个增益buff并移除
+                        const buffToRemove = battle.getRandomOne(buffs);
+                        battle.actionRemoveBuff(buffToRemove, Reasons.SKILL);
+                        battle.log(`【${source.name}】的【大扫除】清除了【${enemy.name}】的【${buffToRemove.name}】buff`);
+                    }
                 }
             }
         });
