@@ -190,10 +190,10 @@
 
                     <a-divider id="effect-hit" orientation="left">效果命中与抵抗</a-divider>
                     
-                    <a-alert message="命中判定：两段独立判定的乘法模型" type="warning" show-icon style="margin-bottom: 16px;">
+                    <a-alert message="命中判定：单段乘法模型" type="warning" show-icon style="margin-bottom: 16px;">
                         <template slot="description">
                             实际实现<strong>不是</strong>"基础概率 + 效果命中 − 效果抵抗"的加法模型，
-                            而是<strong>两段独立随机判定</strong>：先判命中，再判抵抗，两者都通过才会生效。
+                            而是<strong>一次掷骰</strong>：按最终命中概率直接判定是否生效。
                         </template>
                     </a-alert>
                     
@@ -201,18 +201,16 @@
                         <div class="formula-box">
                             <div class="formula-title">效果命中公式（实际实现）</div>
                             <div class="formula-content">
-                                命中概率 P = 基础概率 × (1 + 效果命中 ÷ 100)<br />
-                                抵抗概率 R = P ÷ (1 + 效果抵抗 ÷ 100)<br />
-                                生效需连续通过：先以 P 判定命中，再以 R 判定未被抵抗
+                                最终命中概率 = 基础概率 × (1 + 效果命中%) ÷ (1 + 效果抵抗%)
                             </div>
                         </div>
                     </a-card>
                     
-                    <a-card title="实测对照" size="small" style="margin-top: 16px;">
+                    <a-card title="数据存储说明" size="small" style="margin-top: 16px;">
                         <ul class="rule-list">
-                            <li>基础概率 100% 时，效果抵抗<strong>无法</strong>使其落空（P=1，两次判定必然通过）</li>
-                            <li>基础概率 50%、双方命中/抵抗均为 0 时，实测生效约 <strong>50%</strong>（非加法模型下仍为 50%）</li>
-                            <li>效果抵抗对<strong>基础概率 100% 的技能无效</strong>，这是当前实现的既有行为</li>
+                            <li>效果命中（EFT_HIT）与效果抵抗（EFT_RES）在数据中<strong>以小数存储</strong>（0.1 = 10%）。</li>
+                            <li>代入公式时，10% 对应 <code>(1 + 0.1)</code>，与"效果命中%"等价。</li>
+                            <li>基础概率 100% 时，无论效果抵抗多少都必然命中。</li>
                         </ul>
                     </a-card>
                     
@@ -337,13 +335,6 @@
                         </a-col>
                     </a-row>
                     
-                    <a-alert message="实测提示：能量会迅速饱和" type="warning" show-icon style="margin-top: 16px;">
-                        <template slot="description">
-                            每回合推进1格进度，满5格时结算一次恢复。实测中能量常在开局数回合内即达到
-                            <strong>8点上限</strong>并长期维持满能量状态，
-                            因此"能量不足"在中后期几乎不会成为限制，技能选择主要由AI优先级决定。
-                        </template>
-                    </a-alert>
                     <a-card title="能量消耗" size="small" style="margin-top: 16px;">
                         <ul class="rule-list">
                             <li>技能消耗能量：0-3点不等</li>
