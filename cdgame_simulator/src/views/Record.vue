@@ -86,7 +86,7 @@
                             </span>
                         </th>
                         <th class="hero-col">选手</th>
-                        <th class="soul-col">御魂</th>
+                        <th class="soul-col">宝物</th>
                         <th v-if="isEditMode" class="action-col">操作</th>
                     </tr>
                 </thead>
@@ -182,7 +182,7 @@
                                         <div class="edit-row">
                                             <a-select 
                                                 :value="soul ? soul.id : undefined"
-                                                placeholder="选择御魂"
+                                                placeholder="选择宝物"
                                                 size="small"
                                                 @change="handleSoulChange(team, soulIndex, $event)"
                                                 class="soul-select"
@@ -214,7 +214,7 @@
                                     </template>
                                 </div>
                                 <a-button v-if="isEditMode" type="dashed" size="small" @click.native="addSoul(team)" class="add-btn">
-                                    <a-icon type="plus" />添加御魂
+                                    <a-icon type="plus" />添加宝物
                                 </a-button>
                             </div>
                         </td>
@@ -348,7 +348,7 @@
             </div>
         </a-modal>
 
-        <a-modal v-model="soulDetailVisible" :title="currentSoul ? currentSoul.name : '御魂详情'" 
+        <a-modal v-model="soulDetailVisible" :title="currentSoul ? currentSoul.name : '宝物详情'" 
                  width="500px" :footer="null">
             <div v-if="currentSoul" class="soul-detail">
                 <div class="soul-icon">

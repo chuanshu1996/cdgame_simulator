@@ -305,7 +305,7 @@ export default new Vuex.Store({
         },
         UPDATE_SOUL_SELECTION(state, payload: { teamId: 0 | 1; index: number; soulIds: string[] }) {
             const { teamId, index, soulIds } = payload;
-            // 限制最多3个御魂
+            // 限制最多3个宝物
             const limitedSoulIds = soulIds.slice(0, 3);
             Vue.set(state.soulSelections[teamId], index, limitedSoulIds);
             
@@ -321,12 +321,12 @@ export default new Vuex.Store({
                 return;
             }
             
-            // 检查是否已存在该御魂
+            // 检查是否已存在该宝物
             if (currentSouls.includes(soulId)) {
                 return;
             }
             
-            // 添加新御魂
+            // 添加新宝物
             const newSouls = [...currentSouls, soulId];
             Vue.set(state.soulSelections[teamId], index, newSouls);
             
@@ -337,7 +337,7 @@ export default new Vuex.Store({
             const { teamId, index, soulId } = payload;
             const currentSouls = state.soulSelections[teamId][index] || [];
             
-            // 移除指定御魂
+            // 移除指定宝物
             const newSouls = currentSouls.filter((id: string) => id !== soulId);
             Vue.set(state.soulSelections[teamId], index, newSouls);
             

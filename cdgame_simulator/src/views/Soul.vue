@@ -1,6 +1,6 @@
 <template>
     <div class="site-card">
-        <h2 class="soul-title">御魂图鉴</h2>
+        <h2 class="soul-title">宝物图鉴</h2>
         
         <div class="soul-filter-section">
             <a-select
@@ -47,13 +47,13 @@
 
     const soulColumns = [
         {
-            title: '御魂名称',
+            title: '宝物名称',
             dataIndex: 'name',
             width: 120,
             sorter: (a, b) => a.name.localeCompare(b.name, 'zh-CN'),
         },
         {
-            title: '御魂描述',
+            title: '宝物描述',
             dataIndex: 'description',
             width: 200,
         },
@@ -81,12 +81,12 @@
                 
                 return this.soulData.filter(soul => {
                     if (this.selectedProperty === 'special') {
-                        // 筛选具有特殊效果的御魂
+                        // 筛选具有特殊效果的宝物
                         return soul.effects.some(effect => 
                             effect.type !== 'property_buff' || !effect.propertyBuff
                         );
                     } else {
-                        // 筛选具有特定属性加成的御魂
+                        // 筛选具有特定属性加成的宝物
                         return soul.effects.some(effect => 
                             effect.type === 'property_buff' && 
                             effect.propertyBuff && 

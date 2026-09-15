@@ -202,7 +202,7 @@
                 const fn = () => {
                     if (!this.total || !isRunning) return;
                     
-                    // 为队伍添加御魂信息
+                    // 为队伍添加宝物信息
                     const soulSelections = this.$store.state.soulSelections;
                     const team0WithSoul = this.$store.state.team0.map((d, index) => {
                         return Object.assign({}, d, {soulIds: soulSelections[0][index] || []});

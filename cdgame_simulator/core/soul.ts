@@ -1,6 +1,6 @@
 /**
- * 御魂系统核心文件
- * 定义御魂相关的数据结构和逻辑
+ * 宝物系统核心文件
+ * 定义宝物相关的数据结构和逻辑
  */
 
 import {BattleProperties} from "./constant";
@@ -8,7 +8,7 @@ import Buff, {EffectTypes} from "./buff";
 import Entity from "./entity";
 
 /**
- * 御魂类型枚举
+ * 宝物类型枚举
  */
 export enum SoulType {
     BEI_FU = "bei_fu", // 被服
@@ -17,7 +17,7 @@ export enum SoulType {
 }
 
 /**
- * 御魂效果类型
+ * 宝物效果类型
  */
 export enum SoulEffectType {
     PROPERTY_BUFF = "property_buff", // 属性加成
@@ -29,7 +29,7 @@ export enum SoulEffectType {
 }
 
 /**
- * 御魂属性加成接口
+ * 宝物属性加成接口
  */
 export interface SoulPropertyBuff {
     propertyName: string; // 属性名称
@@ -38,7 +38,7 @@ export interface SoulPropertyBuff {
 }
 
 /**
- * 御魂效果接口
+ * 宝物效果接口
  */
 export interface SoulEffect {
     type: SoulEffectType; // 效果类型
@@ -51,17 +51,17 @@ export interface SoulEffect {
 }
 
 /**
- * 御魂接口
+ * 宝物接口
  */
 export interface Soul {
-    id: string; // 御魂ID
-    name: string; // 御魂名称
-    description: string; // 御魂描述
-    effects: SoulEffect[]; // 御魂效果
+    id: string; // 宝物ID
+    name: string; // 宝物名称
+    description: string; // 宝物描述
+    effects: SoulEffect[]; // 宝物效果
 }
 
 /**
- * 御魂数据
+ * 宝物数据
  */
 export const SoulData: Soul[] = [
     {
@@ -131,37 +131,37 @@ export const SoulData: Soul[] = [
 ];
 
 /**
- * 御魂管理类
+ * 宝物管理类
  */
 export class SoulManager {
     /**
-     * 根据ID获取御魂
-     * @param soulId 御魂ID
-     * @returns 御魂对象或null
+     * 根据ID获取宝物
+     * @param soulId 宝物ID
+     * @returns 宝物对象或null
      */
     static getSoulById(soulId: string): Soul | null {
         return SoulData.find(soul => soul.id === soulId) || null;
     }
 
     /**
-     * 应用多个御魂效果到实体
+     * 应用多个宝物效果到实体
      * @param entity 实体对象
-     * @param soulIds 御魂ID数组
+     * @param soulIds 宝物ID数组
      */
     static applySoulsToEntity(entity: Entity, soulIds: string[]) {
-        // 清除之前的御魂效果
+        // 清除之前的宝物效果
         this.clearSoulEffects(entity);
 
         if (!soulIds || soulIds.length === 0) return;
 
-        // 应用每个御魂效果
+        // 应用每个宝物效果
         soulIds.forEach(soulId => {
             if (!soulId) return;
             
             const soul = this.getSoulById(soulId);
             if (!soul) return;
 
-            // 应用御魂效果
+            // 应用宝物效果
             soul.effects.forEach(effect => {
                 if (effect.type === SoulEffectType.PROPERTY_BUFF && effect.propertyBuff) {
                     // 创建属性加成buff
@@ -182,14 +182,14 @@ export class SoulManager {
             });
         });
 
-        // 保存御魂ID数组到实体
+        // 保存宝物ID数组到实体
         entity.soulIds = soulIds.filter(id => id);
     }
 
     /**
-     * 应用单个御魂效果到实体（兼容旧接口）
+     * 应用单个宝物效果到实体（兼容旧接口）
      * @param entity 实体对象
-     * @param soulId 御魂ID
+     * @param soulId 宝物ID
      */
     static applySoulToEntity(entity: Entity, soulId: string | null) {
         if (soulId) {
@@ -200,25 +200,25 @@ export class SoulManager {
     }
 
     /**
-     * 清除实体的御魂效果
+     * 清除实体的宝物效果
      * @param entity 实体对象
      */
     static clearSoulEffects(entity: Entity) {
-        // 移除御魂相关的buff
+        // 移除宝物相关的buff
         const soulBuffs = entity.buffs.filter((buff: any) => buff.name.includes("属性加成"));
         soulBuffs.forEach((buff: any) => {
             entity.removeBuff(buff);
         });
 
-        // 清除御魂ID
+        // 清除宝物ID
         entity.soulIds = [];
         entity.soulId = null;
     }
 
     /**
-     * 获取实体的御魂列表
+     * 获取实体的宝物列表
      * @param entity 实体对象
-     * @returns 御魂对象数组
+     * @returns 宝物对象数组
      */
     static getEntitySouls(entity: Entity): Soul[] {
         const souls: Soul[] = [];
@@ -240,9 +240,9 @@ export class SoulManager {
     }
 
     /**
-     * 获取实体的御魂（兼容旧接口，返回第一个御魂）
+     * 获取实体的宝物（兼容旧接口，返回第一个宝物）
      * @param entity 实体对象
-     * @returns 御魂对象或null
+     * @returns 宝物对象或null
      */
     static getEntitySoul(entity: Entity): Soul | null {
         const souls = this.getEntitySouls(entity);
@@ -250,7 +250,7 @@ export class SoulManager {
     }
 
     /**
-     * 计算御魂的伤害减免效果（支持多个御魂叠加）
+     * 计算宝物的伤害减免效果（支持多个宝物叠加）
      * @param entity 实体对象
      * @returns 伤害减免系数
      */
@@ -271,7 +271,7 @@ export class SoulManager {
     }
 
     /**
-     * 计算御魂的伤害增强效果（支持多个御魂叠加）
+     * 计算宝物的伤害增强效果（支持多个宝物叠加）
      * @param entity 实体对象
      * @returns 伤害增强系数
      */

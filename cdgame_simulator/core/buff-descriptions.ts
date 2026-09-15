@@ -13,26 +13,26 @@ export interface BuffDescription {
 }
 
 export const BuffDatabase: Record<string, BuffDescription> = {
-    // 御魂相关
+    // 宝物相关
     '被服属性加成': {
         name: '被服属性加成',
         type: '增益',
         description: '增加15%生命值上限',
-        source: '御魂「被服」',
+        source: '宝物「被服」',
         duration: '永久'
     },
     '涅槃之火属性加成': {
         name: '涅槃之火属性加成',
         type: '增益',
         description: '增加15%生命值上限',
-        source: '御魂「涅槃之火」',
+        source: '宝物「涅槃之火」',
         duration: '永久'
     },
     '阴摩罗属性加成': {
         name: '阴摩罗属性加成',
         type: '增益',
         description: '增加15%攻击力',
-        source: '御魂「阴摩罗」',
+        source: '宝物「阴摩罗」',
         duration: '永久'
     },
     
@@ -63,7 +63,7 @@ export const BuffDatabase: Record<string, BuffDescription> = {
     '一矢·封魔·压制': {
         name: '一矢·封魔·压制',
         type: '控制',
-        description: '御魂压制效果，御魂效果失效',
+        description: '宝物压制效果，宝物效果失效',
         source: '御馔津 技能4「一矢·封魔」',
         duration: '1回合'
     },

@@ -1,6 +1,6 @@
 export enum Control {
     NONE,
-    EQUIPMENT_FORBID, // 封印御魂
+    EQUIPMENT_FORBID, // 封印宝物
     PASSIVE_FORBID, //  封印被动
     CONFUSION, // 混乱
     DIZZY, //  眩晕
@@ -76,11 +76,11 @@ export enum AttackParams {
     NO_SHARE  = 'NoShare', // 不可分摊
     NO_SHIELD  = 'NoShield', // 忽略护盾
 
-    NO_TARGET_EQUIPMENT = 'NoTargetEquipment', // 不触发目标御魂
-    NO_TARGET_PASSIVE = 'NoTargetPassive', // 不触发目标御魂
+    NO_TARGET_EQUIPMENT = 'NoTargetEquipment', // 不触发目标宝物
+    NO_TARGET_PASSIVE = 'NoTargetPassive', // 不触发目标宝物
 
-    NO_SOURCE_EQUIPMENT = 'NoSourceEquipment', // 不触发御魂
-    NO_SOURCE_PASSIVE = 'NoSourcePassive' // 不触发御魂
+    NO_SOURCE_EQUIPMENT = 'NoSourceEquipment', // 不触发宝物
+    NO_SOURCE_PASSIVE = 'NoSourcePassive' // 不触发宝物
 }
 export enum BuffParams {
     NO_DISPEL = 'CanDispel', // 是否可驱散

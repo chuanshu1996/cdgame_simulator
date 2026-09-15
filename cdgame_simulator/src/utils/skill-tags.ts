@@ -88,7 +88,7 @@ export const SKILL_TAGS: SkillTagDef[] = [
         name: '间接伤害',
         category: '伤害',
         keywords: ['间接伤害'],
-        description: '正常计算防御（防御越高伤害越低），0 防必暴击（无视自身暴击率），不触发攻击方与受击方御魂，且无法被分摊的伤害',
+        description: '正常计算防御（防御越高伤害越低），0 防必暴击（无视自身暴击率），不触发攻击方与受击方宝物，且无法被分摊的伤害',
     },
     {
         name: '溢出伤害',
@@ -189,10 +189,10 @@ export const SKILL_TAGS: SkillTagDef[] = [
         description: '每回合有概率因恐惧而无法进行攻击与造成伤害',
     },
     {
-        name: '封印御魂',
+        name: '封印宝物',
         category: '控制',
-        keywords: ['御魂压制', '封印御魂', '装备封印'],
-        description: '目标御魂效果失效',
+        keywords: ['宝物压制', '封印宝物', '装备封印'],
+        description: '目标宝物效果失效',
     },
     {
         name: '封印被动',
@@ -419,10 +419,10 @@ export const SKILL_TAGS: SkillTagDef[] = [
 
     // ==================== 无视 ====================
     {
-        name: '无视御魂',
+        name: '无视宝物',
         category: '无视',
-        keywords: ['无视御魂'],
-        description: '技能描述中明确该伤害无视御魂效果',
+        keywords: ['无视宝物'],
+        description: '技能描述中明确该伤害无视宝物效果',
     },
     {
         name: '无视被动',

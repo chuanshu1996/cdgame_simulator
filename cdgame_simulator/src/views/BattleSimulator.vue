@@ -28,7 +28,7 @@
                 </div>
                 
                 <div class="panel-section" v-if="panelSouls && panelSouls.length > 0">
-                    <div class="section-title">御魂信息</div>
+                    <div class="section-title">宝物信息</div>
                     <div class="soul-list">
                         <div v-for="(soul, index) in panelSouls" :key="index" class="soul-item">
                             <div class="soul-header">
@@ -3005,7 +3005,7 @@
                             '效果抵抗':  Math.round(eftRes * 100) + '%' + (originEftRes !== eftRes ? ` (${Math.round(originEftRes * 100)}%)` : ''),
                         };
                         
-                        // 获取御魂信息 - 从SoulData中获取
+                        // 获取宝物信息 - 从SoulData中获取
                         this.panelSouls = [];
                         const teamId = entity.teamId;
                         const posIndex = this.battle.fields[teamId].indexOf(entity.entityId);
@@ -3016,7 +3016,7 @@
                                 this.panelSouls = soulIds.map((soulId, idx) => {
                                     const soulData = SoulData.find(s => s.id === soulId);
                                     return {
-                                        name: soulData ? soulData.name : '御魂',
+                                        name: soulData ? soulData.name : '宝物',
                                         position: idx + 1,
                                         mainStat: soulData && soulData.mainStat ? `${soulData.mainStat.type}: ${soulData.mainStat.value}` : '',
                                         description: soulData ? soulData.description : ''

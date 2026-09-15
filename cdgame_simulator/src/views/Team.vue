@@ -47,7 +47,7 @@
                         <tr>
                             <th class="col-role">角色</th>
                             <th class="col-select">选手</th>
-                            <th class="col-soul">御魂</th>
+                            <th class="col-soul">宝物</th>
                             <th class="col-attr" v-for="label in attrLabels" :key="label.key">{{ label.text }}</th>
                         </tr>
                     </thead>
@@ -172,7 +172,7 @@
                         <tr>
                             <th class="col-role">角色</th>
                             <th class="col-select">选手</th>
-                            <th class="col-soul">御魂</th>
+                            <th class="col-soul">宝物</th>
                             <th class="col-attr" v-for="label in attrLabels" :key="label.key">{{ label.text }}</th>
                         </tr>
                     </thead>

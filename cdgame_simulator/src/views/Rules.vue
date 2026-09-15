@@ -39,7 +39,7 @@
                     
                     <a-steps direction="vertical" :current="-1" class="battle-steps">
                         <a-step title="战斗初始化" description="根据随机种子初始化战斗环境，创建双方实体，设置初始属性和位置" />
-                        <a-step title="先机阶段" description="触发所有先机技能（如御魂效果、被动技能等），准备进入战斗" />
+                        <a-step title="先机阶段" description="触发所有先机技能（如宝物效果、被动技能等），准备进入战斗" />
                         <a-step title="回合循环" description="按照行动条顺序依次执行每个实体的回合，直到战斗结束" />
                         <a-step title="胜负判定" description="当一方所有上场角色阵亡时战斗结束，判定胜负" />
                     </a-steps>
@@ -95,7 +95,7 @@
                         <div class="formula-box">
                             <div class="formula-title">最终伤害公式</div>
                             <div class="formula-content">
-                                最终伤害 = (基础伤害 × 倍率 × 暴击倍率 × 300) ÷ (目标防御 + 300) × 伤害倍率 × 御魂修正 × 波动系数
+                                最终伤害 = (基础伤害 × 倍率 × 暴击倍率 × 300) ÷ (目标防御 + 300) × 伤害倍率 × 宝物修正 × 波动系数
                             </div>
                         </div>
                         
@@ -110,7 +110,7 @@
                         <a-step title="数据准备" description="获取攻击者与目标属性，计算基础伤害" />
                         <a-step title="攻击前事件" description="触发 WILL_ATTACK、WILL_BE_ATTACKED 事件" />
                         <a-step title="暴击判定" description="根据暴击率判定是否暴击，触发 CRI 事件" />
-                        <a-step title="伤害计算" description="计算最终伤害（含伤害倍率、御魂修正、波动系数）" />
+                        <a-step title="伤害计算" description="计算最终伤害（含伤害倍率、宝物修正、波动系数）" />
                         <a-step title="伤害结算" description="扣除生命值，处理死亡逻辑" />
                         <a-step title="伤害后事件" description="触发 HAS_DAMAGED、HAS_BEEN_DAMAGED 事件" />
                         <a-step title="攻击后事件" description="触发 HAS_ATTACKED、HAS_BEEN_ATTACKED 事件" />
@@ -142,7 +142,7 @@
                                 <ul class="rule-list">
                                     <li>暴击率由 <strong>CRI</strong> 属性决定</li>
                                     <li>暴击伤害由 <strong>CRI_DMG</strong> 属性决定（默认150%）</li>
-                                    <li><strong>间接伤害</strong>：正常计算防御（防御越高伤害越低）；目标防御为0时<strong>必然暴击</strong>（无视自身暴击率）；不触发攻击方与受击方的任何御魂效果，且<strong>无法被分摊</strong></li>
+                                    <li><strong>间接伤害</strong>：正常计算防御（防御越高伤害越低）；目标防御为0时<strong>必然暴击</strong>（无视自身暴击率）；不触发攻击方与受击方的任何宝物效果，且<strong>无法被分摊</strong></li>
                                     <li><strong>真实伤害</strong>：<strong>无视对方所有防御</strong>（防御取固定值），但<strong>不会暴击</strong></li>
                                     <li>暴击触发 <strong>CRI</strong> 事件</li>
                                 </ul>
@@ -439,7 +439,7 @@ export default {
                 { key: '2', param: '倍率', desc: '技能伤害倍率（如125% = 1.25）' },
                 { key: '3', param: '暴击倍率', desc: '暴击时为暴击伤害（默认150%），否则为100%' },
                 { key: '4', param: '伤害倍率', desc: '(造成伤害增益 ÷ 造成伤害减益) × (承受伤害增益 ÷ 承受伤害减益)' },
-                { key: '5', param: '御魂修正', desc: '御魂增伤 × 御魂减伤' },
+                { key: '5', param: '宝物修正', desc: '宝物增伤 × 宝物减伤' },
                 { key: '6', param: '波动系数', desc: '随机浮动（默认±0%）' },
             ],
             summonDisappearData: [

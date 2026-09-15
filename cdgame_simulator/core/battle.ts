@@ -57,8 +57,8 @@ interface InititalData {
     eft_hit?: number; // 效果命中
     eft_res?: number; // 效果抵抗
     waitInput?: boolean; // 是否需要手动输入
-    soulId?: string | null; // 御魂ID（兼容旧版本）
-    soulIds?: string[]; // 御魂ID数组（支持多个御魂）
+    soulId?: string | null; // 宝物ID（兼容旧版本）
+    soulIds?: string[]; // 宝物ID数组（支持多个宝物）
     index?: number; // 在队伍中的位置索引（0-7）
     isReserve?: boolean; // 是否为替补/应援位置（不上场但可触发被动技能）
 }
@@ -294,15 +294,15 @@ export default class Battle {
             
             this.fields[teamId][positionIndex] = entity.entityId;
             
-            // 应用御魂效果（支持多个御魂）
+            // 应用宝物效果（支持多个宝物）
             if (data.soulIds && data.soulIds.length > 0) {
                 SoulManager.applySoulsToEntity(entity, data.soulIds);
             } else if (data.soulId) {
-                // 兼容旧版本的单个御魂
+                // 兼容旧版本的单个宝物
                 SoulManager.applySoulToEntity(entity, data.soulId);
             }
             
-            // 同步生命值到最大（使用getComputedProperty来获取包括御魂加成在内的最大生命值）
+            // 同步生命值到最大（使用getComputedProperty来获取包括宝物加成在内的最大生命值）
             entity.hp = this.getComputedProperty(entity.entityId, BattleProperties.MAX_HP);
         });
         // 每队上场人数 = 实际落位的上场主力数（两侧可不相等）
@@ -765,7 +765,7 @@ export default class Battle {
             });
         });
         
-        // 2. 从实体自己的buffs数组中获取buff效果（例如御魂的属性加成）
+        // 2. 从实体自己的buffs数组中获取buff效果（例如宝物的属性加成）
         entity.buffs.forEach((buff: any) => {
             if (!buff.hasParam || !buff.hasParam(BuffParams.AFFECT_PROPERTY)) return; // 不影响属性的buff跳过
             if (!buff.effects || buff.effects.length === 0) return; // 未提供effects属性跳过

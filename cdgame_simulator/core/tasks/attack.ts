@@ -148,8 +148,8 @@ export default function attackProcessor(battle: Battle, data: AttackProcessing, 
             const rate = (attackInfo.damageDealtBuff / attackInfo.damageDealtDebuff) *
                 (attackInfo.targetDamageTakenBuff / attackInfo.targetDamageTakenDebuff);
 
-            // 计算御魂修正
-            // 间接伤害：不触发攻击方与受击方的任何御魂效果
+            // 计算宝物修正
+            // 间接伤害：不触发攻击方与受击方的任何宝物效果
             let soulCorrection: number;
             if (attack.hasParam(AttackParams.INDIRECT)) {
                 soulCorrection = 1;
@@ -159,7 +159,7 @@ export default function attackProcessor(battle: Battle, data: AttackProcessing, 
                 const soulReduction = SoulManager.getDamageReduction(target);
                 soulCorrection = soulEnhancement * soulReduction;
 
-                // 如果有御魂减伤效果，添加日志
+                // 如果有宝物减伤效果，添加日志
                 if (soulReduction < 1) {
                     const reductionPercent = Math.round((1 - soulReduction) * 100);
                     const soulNames = SoulManager.getEntitySouls(target)

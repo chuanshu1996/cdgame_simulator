@@ -43,8 +43,8 @@ export default class Entity {
     turnData: Map<string, string>; // 回合数据，每个回合开始时会被清空
     summonToken: boolean; // 是否是召唤物
     waitInput: boolean; // 是否需要手动输入
-    soulId: string | null; // 御魂ID（兼容旧版本）
-    soulIds: string[]; // 御魂ID数组（支持多个御魂）
+    soulId: string | null; // 宝物ID（兼容旧版本）
+    soulIds: string[]; // 宝物ID数组（支持多个宝物）
     buffs: any[]; // buff列表
     position: number; // 最佳位置坐标
 
@@ -67,8 +67,8 @@ export default class Entity {
         this.turnData = new Map(); // 初始化回合数据
         this.summonToken = false; // 初始不是召唤物
         this.waitInput = false; // 初始不需要手动输入
-        this.soulId = null; // 初始无御魂
-        this.soulIds = []; // 初始无御魂数组
+        this.soulId = null; // 初始无宝物
+        this.soulIds = []; // 初始无宝物数组
         this.buffs = []; // 初始化buff列表
         this.position = -1; // 初始最佳位置为-1
         // 初始化所有属性为0

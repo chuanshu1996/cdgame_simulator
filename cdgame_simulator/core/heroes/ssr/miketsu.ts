@@ -108,7 +108,7 @@ export const miketsu_skill4: Skill = {
     cost: 0, // 技能消耗
     hide: true, // 隐藏技能
     target: SkillTarget.ENEMY, // 目标类型为敌方
-    text: '【隐藏技能】射出封魔之箭，对敌方目标造成攻击100%的伤害，并施加沉默、御魂压制、被动封印效果各1回合，同时降低70%治疗效果。若【狐狩界】开启，则为我方全体增加护符（防御+12%、伤害+8%、速度+4），最多叠加3层。',
+    text: '【隐藏技能】射出封魔之箭，对敌方目标造成攻击100%的伤害，并施加沉默、宝物压制、被动封印效果各1回合，同时降低70%治疗效果。若【狐狩界】开启，则为我方全体增加护符（防御+12%、伤害+8%、速度+4），最多叠加3层。',
     use(battle: Battle, sourceId: number, selectedId: number) {
         const source = battle.getEntity(sourceId);
         // 创建攻击实例
@@ -118,7 +118,7 @@ export const miketsu_skill4: Skill = {
                 AttackParams.SHOULD_COMPUTE_CRI, // 触发暴击
                 AttackParams.SINGLE, // 单体
                 AttackParams.NORMAL_ATTACK, // 普攻
-                AttackParams.NO_TARGET_EQUIPMENT, // 不触发御魂
+                AttackParams.NO_TARGET_EQUIPMENT, // 不触发宝物
                 AttackParams.NO_TARGET_PASSIVE // 不触发被动
             )
             .end();
@@ -132,7 +132,7 @@ export const miketsu_skill4: Skill = {
             .control(Control.SILENT) // 沉默
             .probability(1) // 基础概率100%
             .end();
-        // 御魂压制
+        // 宝物压制
         const buff2 = Buff.build(sourceId, selectedId)
             .name('一矢·封魔·压制', 1)
             .countDown(1)
