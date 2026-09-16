@@ -11,6 +11,7 @@ export const menuItems: MenuItem[] = [
     { key: '/rules', icon: 'book', title: '规则说明' },
     { key: '/team', icon: 'profile', title: '队伍设置' },
     { key: '/record', icon: 'trophy', title: '队伍战绩' },
+    { key: '/schedule', icon: 'calendar', title: '比赛日程' },
     { key: '/match-records', icon: 'history', title: '比赛记录' },
     { key: '/battle', icon: 'fire', title: '卡牌模拟' },
     { key: '/battle-setup', icon: 'setting', title: '战场配置' },

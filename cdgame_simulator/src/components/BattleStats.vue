@@ -109,6 +109,7 @@
 <script>
     import CryptoJS from 'crypto-js';
     import { updateHeroWinRateStats } from '../utils/hero-win-rate';
+    import { RANK_VALUES } from '../config/league';
     
     const ENCRYPTION_KEY = 'cdgame-record-secret-key-2024';
     
@@ -128,12 +129,6 @@
     function generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
     }
-    
-    const RANK_VALUES = {
-        'D': 6, 'C': 9, 'UC': 12, 'B': 18, 'A': 24,
-        'EX': 30, 'S': 36, 'S+': 42, 'SS': 48,
-        'SSR': 48, 'SR': 24, 'R': 12, 'N': 6,
-    };
     
     export default {
         name: 'BattleStats',

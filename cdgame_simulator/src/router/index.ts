@@ -17,6 +17,7 @@ const Record = () => import('../views/Record.vue');
 const MatchRecords = () => import('../views/MatchRecords.vue');
 const HeroData = () => import('../views/HeroData.vue');
 const DataSync = () => import('../views/DataSync.vue');
+const Schedule = () => import('../views/Schedule.vue');
 
 Vue.use(VueRouter);
 
@@ -124,6 +125,11 @@ const routes = [
             name: 'DataSync',
             component: DataSync,
             meta: { adminOnly: true },
+        },
+        {
+            path: '/schedule',
+            name: 'Schedule',
+            component: Schedule,
         },
     ]
 const router = new VueRouter({
