@@ -15,6 +15,9 @@
                 <a-button v-if="isEditMode" type="primary" @click.native="saveData" :loading="saving">
                     <a-icon type="save" />保存
                 </a-button>
+                <a-button v-if="isEditMode" @click.native="handleSyncNow" :loading="syncing">
+                    <a-icon type="cloud-upload" />同步到云端
+                </a-button>
                 <a-button v-if="isEditMode" @click.native="showDrawModal">
                     <a-icon type="gift" />抽取公开邀请选手
                 </a-button>
@@ -154,21 +157,17 @@
                         <td class="hero-col">
                             <div class="heroes-container">
                                 <template v-if="isEditMode">
-                                    <div v-for="heroId in heroIdList" :key="'hero-' + team.id + '-' + heroId" class="hero-item-inline">
-                                        <span class="hero-name">{{ getHeroName(heroId) }}</span>
-                                        <a-input-number 
-                                            :value="getHeroExp(team, heroId)"
-                                            :min="0" :max="6"
-                                            size="small"
-                                            @change="handleExpChange(team, heroId, $event)"
-                                            class="exp-input" />
-                                    </div>
+                                    <a-button type="link" size="small" class="edit-heroes-btn" @click.native="openHeroEdit(team)">
+                                        编辑
+                                    </a-button>
                                 </template>
                                 <template v-else>
                                     <span v-for="heroId in heroIdList" :key="'hero-' + team.id + '-' + heroId" class="hero-item-inline">
                                         <template v-if="shouldShowHero(getHeroExp(team, heroId))">
                                             <span class="hero-cell" @click="showHeroDetail(heroId)">
-                                                {{ getHeroName(heroId) }} {{ getHeroExp(team, heroId) }}/6
+                                                {{ getHeroName(heroId) }}
+                                                <span class="hero-metric">{{ getHeroExp(team, heroId) }}/{{ MAX_EXP }}</span>
+                                                <span class="hero-metric stamina">体{{ getHeroStamina(team, heroId) }}/{{ MAX_STAMINA }}</span>
                                             </span>
                                         </template>
                                     </span>
@@ -400,6 +399,12 @@
                 </div>
             </div>
         </a-modal>
+
+        <team-hero-edit-modal
+            :visible="heroEditVisible"
+            :team="editingTeam"
+            @update:visible="heroEditVisible = $event"
+            @change="markModified" />
     </div>
 </template>
 
@@ -408,6 +413,9 @@ import Vue from 'vue';
 import { mapState } from 'vuex';
 import { HeroData, SoulData, HeroBuilders } from '../../core';
 import { getAvatarPathByNo } from '../utils/avatar-utils';
+import TeamHeroEditModal from '../components/TeamHeroEditModal.vue';
+import { MAX_EXP, MAX_STAMINA } from '../config/league';
+import { syncNow } from '../utils/auto-sync';
 import CryptoJS from 'crypto-js';
 
 const ENCRYPTION_KEY = 'cdgame-record-secret-key-2024';
@@ -442,12 +450,21 @@ function getDefaultHeroExps() {
     return exps;
 }
 
+// 体力默认满值（MAX_STAMINA）；后续接入体力系统时无需为老存档全员补值
+function getDefaultHeroStaminas() {
+    const staminas = {};
+    HeroData.filter(h => h.show === 1 || h.show === undefined).forEach(h => {
+        staminas[h.index] = MAX_STAMINA;
+    });
+    return staminas;
+}
+
 function getDefaultTeams() {
     return [
-        { id: generateId(), name: '传书', matches: 0, jade: 0, wins: 0, losses: 0, score: 0, heroExps: getDefaultHeroExps(), souls: [], isDrawTarget: false, drawnHeroIds: [] },
-        { id: generateId(), name: '勇士', matches: 0, jade: 0, wins: 0, losses: 0, score: 0, heroExps: getDefaultHeroExps(), souls: [], isDrawTarget: false, drawnHeroIds: [] },
-        { id: generateId(), name: '新月', matches: 0, jade: 0, wins: 0, losses: 0, score: 0, heroExps: getDefaultHeroExps(), souls: [], isDrawTarget: false, drawnHeroIds: [] },
-        { id: generateId(), name: '苍叶', matches: 0, jade: 0, wins: 0, losses: 0, score: 0, heroExps: getDefaultHeroExps(), souls: [], isDrawTarget: false, drawnHeroIds: [] },
+        { id: generateId(), name: '传书', matches: 0, jade: 0, wins: 0, losses: 0, score: 0, heroExps: getDefaultHeroExps(), heroStaminas: getDefaultHeroStaminas(), souls: [], isDrawTarget: false, drawnHeroIds: [] },
+        { id: generateId(), name: '勇士', matches: 0, jade: 0, wins: 0, losses: 0, score: 0, heroExps: getDefaultHeroExps(), heroStaminas: getDefaultHeroStaminas(), souls: [], isDrawTarget: false, drawnHeroIds: [] },
+        { id: generateId(), name: '新月', matches: 0, jade: 0, wins: 0, losses: 0, score: 0, heroExps: getDefaultHeroExps(), heroStaminas: getDefaultHeroStaminas(), souls: [], isDrawTarget: false, drawnHeroIds: [] },
+        { id: generateId(), name: '苍叶', matches: 0, jade: 0, wins: 0, losses: 0, score: 0, heroExps: getDefaultHeroExps(), heroStaminas: getDefaultHeroStaminas(), souls: [], isDrawTarget: false, drawnHeroIds: [] },
     ];
 }
 
@@ -464,8 +481,11 @@ function getDefaultState() {
 
 export default {
     name: 'Record',
+    components: { TeamHeroEditModal },
     data() {
         return {
+            MAX_EXP,
+            MAX_STAMINA,
             ...getDefaultState(),
             isEditMode: false,
             passwordModalVisible: false,
@@ -490,6 +510,9 @@ export default {
             soulList: SoulData,
             heroDataMap: {},
             heroIdList: [],
+            heroEditVisible: false,
+            editingTeam: null,
+            syncing: false,
         };
     },
     computed: {
@@ -571,6 +594,16 @@ export default {
                 return 0;
             }
             return team.heroExps[heroId] !== undefined ? team.heroExps[heroId] : 0;
+        },
+        getHeroStamina(team, heroId) {
+            if (!team.heroStaminas || team.heroStaminas[heroId] === undefined) {
+                return MAX_STAMINA;
+            }
+            return team.heroStaminas[heroId];
+        },
+        openHeroEdit(team) {
+            this.editingTeam = team;
+            this.heroEditVisible = true;
         },
         shouldShowHero(exp) {
             return this.showAllHeroes || exp >= 3;
@@ -668,6 +701,7 @@ export default {
                 losses: 0,
                 score: 0,
                 heroExps: getDefaultHeroExps(),
+                heroStaminas: getDefaultHeroStaminas(),
                 souls: [],
                 isDrawTarget: false,
                 drawnHeroIds: [],
@@ -699,12 +733,6 @@ export default {
         },
         removeSoul(team, index) {
             team.souls.splice(index, 1);
-            this.markModified();
-        },
-        handleExpChange(team, heroId, exp) {
-            const newExp = exp !== null ? exp : 0;
-            Vue.set(team.heroExps, heroId, newExp);
-            this.$forceUpdate();
             this.markModified();
         },
         handleSoulChange(team, index, soulId) {
@@ -860,7 +888,7 @@ export default {
         markModified() {
             this.modified = true;
         },
-        saveData() {
+        saveData(silent) {
             this.saving = true;
             try {
                 const data = {
@@ -875,12 +903,34 @@ export default {
                 localStorage.setItem('cdgame_record_data', encrypted);
                 
                 this.modified = false;
-                this.$message.success('保存成功');
+                if (!silent) {
+                    this.$message.success('保存成功');
+                }
             } catch (e) {
                 console.error('保存失败:', e);
                 this.$message.error('保存失败: ' + e.message);
             } finally {
                 this.saving = false;
+            }
+        },
+        async handleSyncNow() {
+            if (this.syncing) return;
+            if (this.modified) {
+                this.saveData(true);
+            }
+            this.syncing = true;
+            try {
+                const result = await syncNow(true);
+                if (result && result.uploaded) {
+                    this.$message.success('已同步到云端');
+                } else {
+                    this.$message.info('本地数据无变化，无需同步');
+                }
+            } catch (e) {
+                console.error('同步失败:', e);
+                this.$message.error('同步失败: ' + e.message);
+            } finally {
+                this.syncing = false;
             }
         },
         loadData() {
@@ -909,6 +959,7 @@ export default {
         },
         ensureTeamData() {
             const defaultExps = getDefaultHeroExps();
+            const defaultStaminas = getDefaultHeroStaminas();
             this.teams.forEach(team => {
                 if (!team.heroExps) {
                     team.heroExps = { ...defaultExps };
@@ -917,6 +968,20 @@ export default {
                     allHeroIds.forEach(heroId => {
                         if (team.heroExps[heroId] === undefined) {
                             team.heroExps[heroId] = 0;
+                        }
+                    });
+                }
+                if (!team.heroStaminas) {
+                    team.heroStaminas = { ...defaultStaminas };
+                } else {
+                    const allHeroIds = Object.keys(defaultStaminas);
+                    allHeroIds.forEach(heroId => {
+                        const cur = Number(team.heroStaminas[heroId]);
+                        if (team.heroStaminas[heroId] === undefined || Number.isNaN(cur)) {
+                            team.heroStaminas[heroId] = MAX_STAMINA;
+                        } else {
+                            // 兼容老存档越界值
+                            team.heroStaminas[heroId] = Math.min(MAX_STAMINA, Math.max(0, Math.round(cur)));
                         }
                     });
                 }
@@ -1136,6 +1201,21 @@ export default {
     align-items: center;
     gap: 4px;
     white-space: nowrap;
+}
+
+.hero-metric {
+    color: #8c8c8c;
+    font-size: 12px;
+}
+
+.hero-metric.stamina {
+    color: #52c41a;
+}
+
+.edit-heroes-btn {
+    padding: 0 4px;
+    height: 22px;
+    line-height: 22px;
 }
 
 .hero-item,

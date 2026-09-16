@@ -82,6 +82,9 @@ export interface RecordTeam {
     losses?: number;
     score?: number;
     heroExps?: Record<string, number>;
+    // 体力：0..MAX_STAMINA，与 heroExps 同构（key 为 HeroData[].index 字符串）。
+    // 本轮仅记录/编辑，不参与上场门槛、结算等任何规则，为后续体力系统预留。
+    heroStaminas?: Record<string, number>;
     souls?: { id: string; name: string; count: number }[];
     drawnHeroIds?: string[];
     isDrawTarget?: boolean;

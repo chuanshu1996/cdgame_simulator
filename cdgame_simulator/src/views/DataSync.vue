@@ -11,6 +11,31 @@
             </ul>
         </a-card>
 
+        <!-- 自动同步（本地 -> 云端） -->
+        <a-card title="自动同步（本地 → 云端）" class="info-card" style="margin-top: 16px">
+            <p>开启后，在页面保持打开且管理员登录态下，按设定间隔检测本地战绩快照（含选手经验/体力）是否变化，
+                仅在变化时才上传；不会自动下载，本地数据不会被云端旧快照覆盖。</p>
+            <div class="auto-sync-row">
+                <span class="auto-sync-label">启用自动同步</span>
+                <a-switch :checked="autoSync.enabled" @change="onAutoSyncEnabledChange" />
+                <span class="auto-sync-label">间隔（分钟）</span>
+                <a-input-number v-model="autoSync.intervalMin" :min="5" :max="1440" />
+                <a-button type="primary" @click="applyAutoSync">保存并应用</a-button>
+                <a-button :loading="syncingNow" @click="handleSyncNow">立即同步到云端</a-button>
+            </div>
+            <div class="auto-sync-status">
+                <span>上次同步：</span>
+                <a-tag color="blue">{{ formatTime(status.lastSyncAt) }}</a-tag>
+                <span>当前状态：</span>
+                <a-tag :color="status.pending ? 'orange' : 'green'">
+                    {{ status.pending ? '有改动待上传' : '已与云端一致' }}
+                </a-tag>
+                <p v-if="status.lastError" class="error-text">
+                    最近错误：{{ status.lastError }}（{{ formatTime(status.lastErrorAt) }}）
+                </p>
+            </div>
+        </a-card>
+
         <a-row :gutter="16" style="margin-top: 16px">
             <!-- 记录同步卡片 -->
             <a-col :span="12">
@@ -95,6 +120,7 @@
 <script>
 import { mapState } from 'vuex';
 import { uploadRecords, downloadRecords, uploadStats, downloadStats, getSyncTimestamps } from '../utils/sync-api';
+import { getAutoSyncConfig, setAutoSyncConfig, getAutoSyncStatus, syncNow } from '../utils/auto-sync';
 
 const ADMIN_PASSWORD_HASH = '4f323fde03b2d593d6988bb02ab0b7b7';
 
@@ -112,6 +138,10 @@ export default {
             downloadingRecords: false,
             uploadingStats: false,
             downloadingStats: false,
+            autoSync: { enabled: true, intervalMin: 30 },
+            status: { lastSyncAt: null, lastError: '', lastErrorAt: null, pending: false },
+            syncingNow: false,
+            statusTimer: null,
         };
     },
     computed: {
@@ -122,8 +152,52 @@ export default {
     },
     mounted() {
         this.loadSyncInfo();
+        this.loadAutoSync();
+        this.statusTimer = setInterval(() => {
+            this.status = getAutoSyncStatus();
+        }, 20000);
+    },
+    beforeDestroy() {
+        if (this.statusTimer) {
+            clearInterval(this.statusTimer);
+            this.statusTimer = null;
+        }
     },
     methods: {
+        loadAutoSync() {
+            this.autoSync = getAutoSyncConfig();
+            this.status = getAutoSyncStatus();
+        },
+        onAutoSyncEnabledChange(checked) {
+            this.autoSync.enabled = checked;
+            setAutoSyncConfig({ enabled: checked });
+            this.status = getAutoSyncStatus();
+            this.$message.success(checked ? '已启用自动同步' : '已停用自动同步');
+        },
+        applyAutoSync() {
+            this.autoSync = setAutoSyncConfig({
+                enabled: this.autoSync.enabled,
+                intervalMin: this.autoSync.intervalMin,
+            });
+            this.status = getAutoSyncStatus();
+            this.$message.success('自动同步设置已保存');
+        },
+        async handleSyncNow() {
+            this.syncingNow = true;
+            try {
+                const result = await syncNow(true);
+                if (result && result.uploaded) {
+                    this.$message.success('已同步到云端');
+                } else {
+                    this.$message.info('本地数据无变化或暂无数据，无需同步');
+                }
+            } catch (e) {
+                this.$message.error('同步失败: ' + e.message);
+            } finally {
+                this.syncingNow = false;
+                this.status = getAutoSyncStatus();
+            }
+        },
         async loadSyncInfo() {
             this.loadingInfo = true;
             try {
@@ -260,6 +334,29 @@ export default {
     display: flex;
     gap: 8px;
     justify-content: center;
+}
+
+.auto-sync-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.auto-sync-label {
+    color: #262626;
+}
+
+.auto-sync-status {
+    margin-top: 12px;
+    color: #595959;
+}
+
+.error-text {
+    color: #ff4d4f;
+    margin-top: 8px;
+    margin-bottom: 0;
 }
 
 .empty-state {

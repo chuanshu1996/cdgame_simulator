@@ -61,6 +61,7 @@
 <script>
     import { menuItems } from './config/menu';
     import { mapState } from 'vuex';
+    import { startAutoSync, stopAutoSync } from './utils/auto-sync';
     
     export default {
         data() {
@@ -72,6 +73,22 @@
                 adminPassword: '',
                 adminPasswordError: '',
             };
+        },
+        mounted() {
+            // 定时同步只在管理员登录态下运行，登录/登出时启停
+            this.startSync();
+        },
+        beforeDestroy() {
+            stopAutoSync();
+        },
+        watch: {
+            isAdminLoggedIn(val) {
+                if (val) {
+                    this.startSync();
+                } else {
+                    stopAutoSync();
+                }
+            },
         },
         computed: {
             ...mapState(['isAdminLoggedIn']),
@@ -87,6 +104,9 @@
             }
         },
         methods: {
+            startSync() {
+                startAutoSync(() => this.isAdminLoggedIn);
+            },
             debounce(func, delay) {
                 let timeoutId;
                 return function(...args) {

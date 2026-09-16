@@ -16,6 +16,9 @@ export const DEFAULT_PRICE_FACTOR = 10;
 export const OFFICIAL_EXP_THRESHOLD = 3;
 export const MAX_EXP = 6;
 
+// 体力上限：本轮仅作为可编辑的记录字段，不参与任何规则判定（后续接体力系统时再接入上场门槛/消耗）
+export const MAX_STAMINA = 5;
+
 // 出战阵容位置（与「队伍设置」8 位一致）
 export const POSITION_LABELS = ['教练', '先锋', '次锋', '中坚', '副将', '大将', '替补', '应援'];
 export const LINEUP_SIZE = 8;
@@ -26,6 +29,12 @@ export const SCHEDULE_STORAGE_KEY = 'cdgame_schedule_data';
 // 本地存储：队伍战绩与比赛记录（AES）
 export const RECORD_STORAGE_KEY = 'cdgame_record_data';
 export const RECORD_ENCRYPTION_KEY = 'cdgame-record-secret-key-2024';
+
+// 本地存储：自动同步配置（定时把本地战绩快照上传到 D1）
+export const AUTO_SYNC_STORAGE_KEY = 'cdgame_auto_sync_config';
+export const DEFAULT_AUTO_SYNC_INTERVAL_MIN = 30;
+export const MIN_AUTO_SYNC_INTERVAL_MIN = 5;
+export const MAX_AUTO_SYNC_INTERVAL_MIN = 1440;
 
 // GLM（智谱开放平台）默认接入参数，免费模型 glm-4.7-flash
 export const GLM_DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4';
