@@ -386,18 +386,52 @@
                     <div class="card-title small">引入选手（扣除勾玉，达到正赛上场门槛）</div>
                     <div class="signing-row">
                         <a-select
-                            v-model="signingHeroId"
+                            v-model="signingHeroIds"
                             size="small"
+                            mode="multiple"
                             show-search
                             option-filter-prop="children"
                             class="signing-select"
-                            placeholder="选择要引入的选手"
+                            placeholder="选择要引入的选手（可多选）"
                         >
                             <a-select-option v-for="h in signableHeroes" :key="h.id" :value="h.id">
                                 {{ h.name }}（{{ h.rank }} · 战力 {{ h.point }} · {{ h.price }} 勾玉）
                             </a-select-option>
                         </a-select>
-                        <a-button size="small" type="primary" :disabled="!signingHeroId" @click.native="doSigning">引入</a-button>
+                        <a-button size="small" type="primary" :disabled="!signingHeroIds.length" @click.native="doSigning">引入</a-button>
+                    </div>
+                    <div class="signing-row name-input-row">
+                        <a-select
+                            show-search
+                            allow-clear
+                            size="small"
+                            placeholder="或输入选手姓名/昵称自动识别"
+                            :value="nameInputValue || undefined"
+                            :filterOption="filterHero"
+                            class="signing-select"
+                            @search="onNameSearch"
+                            @change="onNamePick"
+                        >
+                            <a-select-option v-for="hero in nameMatchList" :key="hero.index" :value="hero.index">
+                                {{ hero.name }}<span class="nick-hint" v-if="hero.nickname">（{{ hero.nickname }}）</span>
+                                · {{ hero.rank }}
+                            </a-select-option>
+                        </a-select>
+                    </div>
+                    <div v-if="neededHeroes.length" class="needed-block">
+                        <div class="needed-title">阵容中未拥有、可引入的选手（{{ neededHeroes.length }}）：</div>
+                        <div class="needed-tags">
+                            <a-tag
+                                v-for="h in neededHeroes"
+                                :key="h.id"
+                                class="needed-tag"
+                                :class="{'needed-tag-selected': signingHeroIds.indexOf(h.id) !== -1}"
+                                @click.native="toggleNeeded(h.id)"
+                            >
+                                {{ h.name }} · {{ h.price }}勾玉
+                                <span v-if="signingHeroIds.indexOf(h.id) !== -1" class="needed-check">✓</span>
+                            </a-tag>
+                        </div>
                     </div>
                 </div>
                 <div class="lineup-actions">
@@ -470,7 +504,15 @@ export default {
             lineupVisible: false,
             lineupTeamId: '',
             lineupDraft: [],
-            signingHeroId: undefined,
+            signingHeroIds: [],
+            nameInputValue: undefined,
+            nameMatchList: [],
+            flatHeroList: HeroData.filter(hero => hero.show === 1).map(hero => ({
+                index: Number(hero.index),
+                name: hero.name,
+                nickname: hero.nickname || '',
+                rank: (hero.rank || 'N').toUpperCase(),
+            })),
             teamScheduleColumns: [
                 { title: '轮次', dataIndex: 'roundName', key: 'roundName' },
                 { title: '对手', dataIndex: 'opponent', key: 'opponent' },
@@ -606,6 +648,15 @@ export default {
                 this.schedule.ai.priceFactor,
                 this.schedule.ai.priceOverrides || {},
             ).sort((a, b) => b.point - a.point);
+        },
+        // 阵容中（含替补/应援位）已选用的选手 id
+        lineupUsedIds() {
+            return (this.lineupDraft || []).filter(Boolean).map(id => String(id));
+        },
+        // 自动找出：当前阵容里没有、且仍需要勾玉引入的选手（用于一键勾选采购）
+        neededHeroes() {
+            if (!this.lineupTeam) return [];
+            return this.signableHeroes.filter(h => this.lineupUsedIds.indexOf(String(h.id)) === -1);
         },
     },
     watch: {
@@ -831,7 +882,9 @@ export default {
             this.reload();
             const team = this.recordTeams.find(t => t.id === teamId);
             this.lineupDraft = team ? getLineup(this.schedule, team).slice() : [];
-            this.signingHeroId = undefined;
+            this.signingHeroIds = [];
+            this.nameInputValue = undefined;
+            this.nameMatchList = [];
             this.lineupVisible = true;
         },
         setLineupSlot(index, val) {
@@ -851,22 +904,108 @@ export default {
         },
         doSigning() {
             const team = this.lineupTeam;
-            if (!team || !this.signingHeroId) return;
-            const hero = HeroData.find(h => String(h.index) === String(this.signingHeroId));
-            if (!hero) return;
-            const price = this.priceOf((hero.rank || 'N').toUpperCase());
-            if ((team.jade || 0) < price) {
-                this.$message.warning('勾玉不足，无法引入该选手');
-                return;
-            }
+            if (!team || !this.signingHeroIds.length) return;
             const record = readRecordData();
             const target = (record.teams || []).find(t => t.id === team.id);
             if (!target) return;
-            if (applySigning(target, this.signingHeroId, price)) {
+            const jade = team.jade || 0;
+            const names = [];
+            let totalCost = 0;
+            const failed = [];
+            this.signingHeroIds.forEach(id => {
+                const hero = HeroData.find(h => String(h.index) === String(id));
+                if (!hero) return;
+                const price = this.priceOf((hero.rank || 'N').toUpperCase());
+                if (jade - totalCost < price) {
+                    failed.push(hero.name);
+                    return;
+                }
+                if (applySigning(target, String(id), price)) {
+                    totalCost += price;
+                    names.push(hero.name);
+                } else {
+                    failed.push(hero.name);
+                }
+            });
+            if (totalCost > 0) {
                 writeRecordData(record);
                 this.reload();
-                this.signingHeroId = undefined;
-                this.$message.success(`已引入 ${hero.name}，消耗 ${price} 勾玉`);
+            }
+            this.signingHeroIds = [];
+            if (names.length) {
+                this.$message.success(`已引入 ${names.length} 名选手（${names.join('、')}），共消耗 ${totalCost} 勾玉`);
+            }
+            if (failed.length) {
+                this.$message.warning(`勾玉不足，以下选手未引入：${failed.join('、')}`);
+            }
+        },
+        // ========== 选手名识别输入（与队伍设置页一致的匹配能力） ==========
+        filterHero(input, option) {
+            if (!input) return true;
+            const searchStr = input.toLowerCase().trim();
+            const heroName = option.componentOptions.children[0].text.toLowerCase();
+            return heroName.includes(searchStr);
+        },
+        normalize(str) {
+            if (!str) return '';
+            let s = String(str).toLowerCase().replace(/\s+/g, '');
+            s = s.replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+            return s;
+        },
+        isSubsequence(sub, str) {
+            if (!sub || !str) return false;
+            let i = 0;
+            for (let j = 0; j < str.length && i < sub.length; j++) {
+                if (sub[i] === str[j]) i++;
+            }
+            return i === sub.length;
+        },
+        // 输入时实时过滤候选（姓名 / 昵称 / 缩略子序列）
+        onNameSearch(value) {
+            const q = this.normalize(value);
+            if (!q) {
+                this.nameMatchList = [];
+                return;
+            }
+            const hits = [];
+            for (const hero of this.flatHeroList) {
+                const nameN = this.normalize(hero.name);
+                const nickN = this.normalize(hero.nickname);
+                if (q === nameN || (nickN && q === nickN)) {
+                    hits.unshift(hero);
+                } else if (q.length === 1) {
+                    if (nameN.indexOf(q) !== -1 || (nickN && nickN.indexOf(q) !== -1)) {
+                        hits.push(hero);
+                    }
+                } else if (q.length >= 2) {
+                    if (this.isSubsequence(q, nameN)) {
+                        hits.push(hero);
+                    } else if (nickN && this.isSubsequence(q, nickN)) {
+                        hits.push(hero);
+                    }
+                }
+            }
+            this.nameMatchList = hits.slice(0, 30);
+        },
+        // 选中识别出的选手 → 加入引入列表
+        onNamePick(value) {
+            if (value === undefined || value === null) {
+                this.nameInputValue = undefined;
+                this.nameMatchList = [];
+                return;
+            }
+            if (this.signingHeroIds.indexOf(String(value)) === -1) {
+                this.signingHeroIds.push(String(value));
+            }
+            this.nameInputValue = undefined;
+            this.nameMatchList = [];
+        },
+        toggleNeeded(id) {
+            const idx = this.signingHeroIds.indexOf(String(id));
+            if (idx === -1) {
+                this.signingHeroIds.push(String(id));
+            } else {
+                this.signingHeroIds.splice(idx, 1);
             }
         },
     },
@@ -1411,6 +1550,53 @@ export default {
 
 .signing-select {
     flex: 1;
+}
+
+.name-input-row {
+    margin-top: 8px;
+}
+
+.nick-hint {
+    color: #8c8c8c;
+    margin-left: 2px;
+}
+
+.needed-block {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: #fafafa;
+    border: 1px dashed #e4e7ef;
+    border-radius: 6px;
+}
+
+.needed-title {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 6px;
+}
+
+.needed-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.needed-tag {
+    cursor: pointer;
+    user-select: none;
+    margin: 0;
+    transition: all 0.15s ease;
+}
+
+.needed-tag-selected {
+    background: #e6f7ff;
+    border-color: #1890ff;
+    color: #1890ff;
+}
+
+.needed-check {
+    margin-left: 2px;
+    font-weight: 700;
 }
 
 .lineup-actions {
