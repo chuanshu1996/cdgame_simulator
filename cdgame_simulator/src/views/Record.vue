@@ -416,23 +416,25 @@ import { getAvatarPathByNo } from '../utils/avatar-utils';
 import TeamHeroEditModal from '../components/TeamHeroEditModal.vue';
 import { MAX_EXP, MAX_STAMINA } from '../config/league';
 import { syncNow } from '../utils/auto-sync';
-import CryptoJS from 'crypto-js';
+import AES from 'crypto-js/aes';
+import MD5 from 'crypto-js/md5';
+import Utf8 from 'crypto-js/enc-utf8';
 
 const ENCRYPTION_KEY = 'cdgame-record-secret-key-2024';
 const PASSWORD_HASH = '73835c7ac154b5f38f1398114d500f43';
 
 function hashPassword(password) {
-    return CryptoJS.MD5(password).toString();
+    return MD5(password).toString();
 }
 
 function encryptData(data) {
-    return CryptoJS.AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();
+    return AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();
 }
 
 function decryptData(encrypted) {
     try {
-        const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
-        return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        const bytes = AES.decrypt(encrypted, ENCRYPTION_KEY);
+        return JSON.parse(bytes.toString(Utf8));
     } catch (e) {
         return null;
     }

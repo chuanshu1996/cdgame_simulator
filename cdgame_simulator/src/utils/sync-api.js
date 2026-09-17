@@ -12,7 +12,8 @@
 // - `cdgame_record_data` 本地始终以 AES 密文存储（隐私层保留）；上传前解密成
 //   明文 JSON 传给 D1（D1 侧由 Bearer 鉴权保护），下载后再加密写回本地。
 // - 下载只在请求成功且 JSON 解析通过后才写 localStorage，失败绝不覆盖本地。
-import CryptoJS from 'crypto-js';
+import AES from 'crypto-js/aes';
+import Utf8 from 'crypto-js/enc-utf8';
 
 const API_BASE = process.env.VUE_APP_API_BASE || '';
 
@@ -68,8 +69,8 @@ function readLocalRecordData() {
     const encrypted = localStorage.getItem(RECORD_STORAGE_KEY);
     if (!encrypted) return { teams: [], matchRecords: [] };
     try {
-        const bytes = CryptoJS.AES.decrypt(encrypted, RECORD_ENCRYPTION_KEY);
-        const parsed = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        const bytes = AES.decrypt(encrypted, RECORD_ENCRYPTION_KEY);
+        const parsed = JSON.parse(bytes.toString(Utf8));
         if (!parsed || typeof parsed !== 'object') throw new Error('结构异常');
         return { teams: parsed.teams || [], matchRecords: parsed.matchRecords || [] };
     } catch (e) {
@@ -78,7 +79,7 @@ function readLocalRecordData() {
 }
 
 function writeLocalRecordData(data) {
-    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), RECORD_ENCRYPTION_KEY).toString();
+    const encrypted = AES.encrypt(JSON.stringify(data), RECORD_ENCRYPTION_KEY).toString();
     localStorage.setItem(RECORD_STORAGE_KEY, encrypted);
 }
 

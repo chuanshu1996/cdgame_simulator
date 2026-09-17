@@ -304,7 +304,6 @@
 
 <script>
 import { mapState } from 'vuex';
-import * as XLSX from 'xlsx';
 
 const ADMIN_PASSWORD_HASH = '4f323fde03b2d593d6988bb02ab0b7b7';
 
@@ -1336,6 +1335,7 @@ export default {
             this.importProgress = 0;
             this.importSummary = null;
             try {
+                const XLSX = await import('xlsx');
                 const buf = await file.arrayBuffer();
                 const wb = XLSX.read(buf, { type: 'array' });
                 // 选择第一个含数据的 sheet（数据行 > 1）
@@ -1480,6 +1480,7 @@ export default {
             this.exporting = true;
             this.exportProgress = 0;
             try {
+                const XLSX = await import('xlsx');
                 const cols = this.exportableColumns.filter(c => this.exportSelectedCols.includes(c.key));
                 if (cols.length === 0) throw new Error('请至少选择一列导出');
 

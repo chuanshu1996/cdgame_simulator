@@ -199,7 +199,8 @@
 
 <script>
 import { mapState } from 'vuex';
-import CryptoJS from 'crypto-js';
+import AES from 'crypto-js/aes';
+import Utf8 from 'crypto-js/enc-utf8';
 import BattleStats from '../components/BattleStats.vue';
 import { rollbackHeroWinRateStats } from '../utils/hero-win-rate';
 
@@ -207,8 +208,8 @@ const ENCRYPTION_KEY = 'cdgame-record-secret-key-2024';
 
 function decryptData(encrypted) {
     try {
-        const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
-        return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        const bytes = AES.decrypt(encrypted, ENCRYPTION_KEY);
+        return JSON.parse(bytes.toString(Utf8));
     } catch (e) {
         return null;
     }
@@ -414,7 +415,7 @@ export default {
             }
             
             data.matchRecords = this.matchRecords;
-            const newEncrypted = CryptoJS.AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();
+            const newEncrypted = AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();
             localStorage.setItem('cdgame_record_data', newEncrypted);
         },
         saveData() {
@@ -432,7 +433,7 @@ export default {
                 data.matchRecords = this.matchRecords;
                 data.savedAt = new Date().toISOString();
                 
-                const newEncrypted = CryptoJS.AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();
+                const newEncrypted = AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();
                 localStorage.setItem('cdgame_record_data', newEncrypted);
             } catch (e) {
                 console.error('保存数据失败:', e);

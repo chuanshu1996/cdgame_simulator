@@ -382,6 +382,20 @@
                         </a-select>
                     </div>
                 </div>
+                <div class="batch-lineup-block">
+                    <div class="card-title small">批量填入阵容（按教练→应援顺序，支持中英文逗号/顿号/分号/空格分隔）</div>
+                    <div class="batch-lineup-row">
+                        <a-input
+                            v-model="batchLineupText"
+                            size="small"
+                            class="batch-lineup-input"
+                            placeholder="例：古冢梢，桧森誓子、星野遥 神代凛...（依次填入教练、先锋、次锋…）"
+                            @pressEnter="applyBatchLineup"
+                        />
+                        <a-button size="small" type="primary" @click.native="applyBatchLineup">批量填入</a-button>
+                        <a-button size="small" @click.native="clearBatchLineup">清空</a-button>
+                    </div>
+                </div>
                 <div class="signing-block">
                     <div class="card-title small">引入选手（扣除勾玉，达到正赛上场门槛）</div>
                     <div class="signing-row">
@@ -504,6 +518,7 @@ export default {
             lineupVisible: false,
             lineupTeamId: '',
             lineupDraft: [],
+            batchLineupText: '',
             signingHeroIds: [],
             nameInputValue: undefined,
             nameMatchList: [],
@@ -889,6 +904,109 @@ export default {
         },
         setLineupSlot(index, val) {
             Vue.set(this.lineupDraft, index, val || null);
+        },
+        // 在「当前队伍已拥有选手」范围内，按名字（姓名/昵称/子序列）匹配一个 hero
+        matchHeroByName(rawName) {
+            const q = this.normalize(rawName);
+            if (!q) return null;
+            const opts = this.lineupOptions || [];
+            // 1) 精确匹配（姓名或昵称）
+            let hit = opts.find(h => {
+                const n = this.normalize(h.name);
+                const nick = this.normalize(h.nickname || h.nick);
+                return q === n || (nick && q === nick);
+            });
+            if (hit) return hit;
+            // 2) 单字：包含即可
+            if (q.length === 1) {
+                hit = opts.find(h => {
+                    const n = this.normalize(h.name);
+                    const nick = this.normalize(h.nickname || h.nick);
+                    return n.indexOf(q) !== -1 || (nick && nick.indexOf(q) !== -1);
+                });
+                if (hit) return hit;
+            }
+            // 3) 子序列匹配（姓名或昵称）
+            if (q.length >= 2) {
+                hit = opts.find(h => {
+                    const n = this.normalize(h.name);
+                    const nick = this.normalize(h.nickname || h.nick);
+                    return this.isSubsequence(q, n) || (nick && this.isSubsequence(q, nick));
+                });
+                if (hit) return hit;
+            }
+            return null;
+        },
+        // 批量填入：按分隔符拆分，依次填入教练→应援各位置
+        applyBatchLineup() {
+            const text = (this.batchLineupText || '').trim();
+            if (!text) {
+                this.$message.info('请输入选手名称');
+                return;
+            }
+            // 支持中英文逗号、顿号、分号、句号、空格、制表符等多种分隔符
+            const names = text.split(/[\s，,、；;。.\t]+/).map(s => s.trim()).filter(Boolean);
+            if (!names.length) {
+                this.$message.info('未解析到有效名称');
+                return;
+            }
+            const filled = [];
+            const missed = [];
+            const usedIds = [];
+            names.forEach((nm, i) => {
+                if (i >= LINEUP_SIZE) {
+                    missed.push(nm + '（超出位置数）');
+                    return;
+                }
+                // 避免同一选手被重复填入多个位置
+                const candidates = (this.lineupOptions || []).filter(h => usedIds.indexOf(String(h.id)) === -1);
+                const hero = this.matchInList(nm, candidates);
+                if (hero) {
+                    Vue.set(this.lineupDraft, i, hero.id);
+                    usedIds.push(String(hero.id));
+                    filled.push(this.positionLabels[i] + ':' + hero.name);
+                } else {
+                    missed.push(nm);
+                    Vue.set(this.lineupDraft, i, null);
+                }
+            });
+            if (filled.length) {
+                this.$message.success(`已自动填入 ${filled.length} 个位置：${filled.join('，')}`);
+            }
+            if (missed.length) {
+                this.$message.warning(`以下未匹配（队伍无该选手或名称不清）：${missed.join('，')}`);
+            }
+        },
+        // 在给定候选列表里按名字匹配（抽取自 matchHeroByName，便于带入排除已用集合）
+        matchInList(rawName, list) {
+            const q = this.normalize(rawName);
+            if (!q) return null;
+            let hit = list.find(h => {
+                const n = this.normalize(h.name);
+                const nick = this.normalize(h.nickname || h.nick);
+                return q === n || (nick && q === nick);
+            });
+            if (hit) return hit;
+            if (q.length === 1) {
+                hit = list.find(h => {
+                    const n = this.normalize(h.name);
+                    const nick = this.normalize(h.nickname || h.nick);
+                    return n.indexOf(q) !== -1 || (nick && nick.indexOf(q) !== -1);
+                });
+                if (hit) return hit;
+            }
+            if (q.length >= 2) {
+                hit = list.find(h => {
+                    const n = this.normalize(h.name);
+                    const nick = this.normalize(h.nickname || h.nick);
+                    return this.isSubsequence(q, n) || (nick && this.isSubsequence(q, nick));
+                });
+                if (hit) return hit;
+            }
+            return null;
+        },
+        clearBatchLineup() {
+            this.batchLineupText = '';
         },
         fillAutoLineup() {
             const team = this.lineupTeam;
@@ -1533,6 +1651,22 @@ export default {
 }
 
 .pos-select {
+    flex: 1;
+}
+
+.batch-lineup-block {
+    margin-top: 12px;
+    border-top: 1px dashed #eef0f5;
+    padding-top: 10px;
+}
+
+.batch-lineup-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.batch-lineup-input {
     flex: 1;
 }
 

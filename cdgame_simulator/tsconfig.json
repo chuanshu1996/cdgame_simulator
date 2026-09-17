@@ -1,8 +1,8 @@
 {
 
   "compilerOptions": {
-    "module": "commonjs",
-    //遵循的JavaScript模块规范。主要的候选项有：commonjs、AMD和es2015。为了后面与node.js保持一致，我们这里选用commonjs。
+    "module": "esnext",
+    //改为 esnext：保留 import() 动态语法，恢复路由懒加载（否则 ts-loader 会把 () => import() 降级成同步 require，导致所有页面+core 被打进 app.js）。
     "target": "esnext",
     //编译之后生成的JavaScript文件需要遵循的标准。有三个候选项：es3、es5、es2015 (即es6)
     "sourceMap": false,

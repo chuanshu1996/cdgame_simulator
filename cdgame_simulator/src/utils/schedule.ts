@@ -4,7 +4,8 @@
 // - 赛程/AI 配置：明文 JSON 存 localStorage[cdgame_schedule_data]（与 omj_team_state 同策略，不进 D1）
 // - 结算结果：写回 AES 的 cdgame_record_data（teams + matchRecords），复用「队伍战绩 / 比赛记录」页
 
-import CryptoJS from 'crypto-js';
+import AES from 'crypto-js/aes';
+import Utf8 from 'crypto-js/enc-utf8';
 import { Battle, BattleProperties, Buff, EffectTypes, Reasons, HeroData, HeroBuilders } from '../../core';
 import { updateHeroWinRateStats } from './hero-win-rate';
 import { planTeamForRound } from './league-ai';
@@ -167,8 +168,8 @@ export function readRecordData(): RecordData {
     try {
         const encrypted = localStorage.getItem(RECORD_STORAGE_KEY);
         if (!encrypted) return fallback;
-        const bytes = CryptoJS.AES.decrypt(encrypted, RECORD_ENCRYPTION_KEY);
-        const parsed = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        const bytes = AES.decrypt(encrypted, RECORD_ENCRYPTION_KEY);
+        const parsed = JSON.parse(bytes.toString(Utf8));
         if (!parsed || typeof parsed !== 'object') return fallback;
         return Object.assign(fallback, parsed);
     } catch (e) {
@@ -179,7 +180,7 @@ export function readRecordData(): RecordData {
 
 export function writeRecordData(data: RecordData): void {
     data.savedAt = new Date().toISOString();
-    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), RECORD_ENCRYPTION_KEY).toString();
+    const encrypted = AES.encrypt(JSON.stringify(data), RECORD_ENCRYPTION_KEY).toString();
     localStorage.setItem(RECORD_STORAGE_KEY, encrypted);
 }
 

@@ -107,7 +107,9 @@
 </template>
 
 <script>
-    import CryptoJS from 'crypto-js';
+    import AES from 'crypto-js/aes';
+    import MD5 from 'crypto-js/md5';
+    import Utf8 from 'crypto-js/enc-utf8';
     import { updateHeroWinRateStats } from '../utils/hero-win-rate';
     import { RANK_VALUES } from '../config/league';
     
@@ -115,15 +117,15 @@
     
     function decryptData(encrypted) {
         try {
-            const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
-            return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+            const bytes = AES.decrypt(encrypted, ENCRYPTION_KEY);
+            return JSON.parse(bytes.toString(Utf8));
         } catch (e) {
             return null;
         }
     }
     
     function encryptData(data) {
-        return CryptoJS.AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();
+        return AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();
     }
     
     function generateId() {

@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 cdn/
+cdgame_simulator/docs/
 
 # Local env
 .env.local

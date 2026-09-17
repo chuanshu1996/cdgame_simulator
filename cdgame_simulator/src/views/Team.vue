@@ -264,14 +264,15 @@
 <script>
     import { HeroData, SoulData } from '../../core'
     import {mapState} from 'vuex'
-    import CryptoJS from 'crypto-js';
+    import AES from 'crypto-js/aes';
+    import Utf8 from 'crypto-js/enc-utf8';
 
     const ENCRYPTION_KEY = 'cdgame-record-secret-key-2024';
 
     function decryptData(encrypted) {
         try {
-            const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
-            return JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+            const bytes = AES.decrypt(encrypted, ENCRYPTION_KEY);
+            return JSON.parse(bytes.toString(Utf8));
         } catch (e) {
             return null;
         }

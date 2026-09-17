@@ -8,7 +8,7 @@
 //   - 失败只记录到配置里的 lastError，不弹窗（手动同步由调用方提示）。
 //
 // 与 worker/_worker.js 的契约见 src/utils/sync-api.js 头部注释。
-import CryptoJS from 'crypto-js';
+import MD5 from 'crypto-js/md5';
 import { uploadRecords } from './sync-api';
 import {
     AUTO_SYNC_STORAGE_KEY,
@@ -60,7 +60,7 @@ function writeConfig(patch) {
 function getLocalFingerprint() {
     const raw = localStorage.getItem(RECORD_STORAGE_KEY);
     if (!raw) return '';
-    return CryptoJS.MD5(raw).toString();
+    return MD5(raw).toString();
 }
 
 export async function syncNow(force) {

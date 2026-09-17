@@ -2,7 +2,9 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 import { HeroData, HeroBuilders } from '../../core';
 import {sampleSize} from 'lodash';
-import CryptoJS from 'crypto-js';
+import AES from 'crypto-js/aes';
+import MD5 from 'crypto-js/md5';
+import Utf8 from 'crypto-js/enc-utf8';
 
 Vue.use(Vuex);
 
@@ -11,15 +13,15 @@ const ADMIN_PASSWORD_HASH = '4f323fde03b2d593d6988bb02ab0b7b7';
 const ADMIN_TOKEN_KEY = 'cdgame_admin_token';
 
 function hashPassword(password: string) {
-    return CryptoJS.MD5(password).toString();
+    return MD5(password).toString();
 }
 
 function loadAdminToken(): boolean {
     try {
         const token = localStorage.getItem(ADMIN_TOKEN_KEY);
         if (token) {
-            const data = CryptoJS.AES.decrypt(token, ENCRYPTION_KEY);
-            const parsed = JSON.parse(data.toString(CryptoJS.enc.Utf8));
+            const data = AES.decrypt(token, ENCRYPTION_KEY);
+            const parsed = JSON.parse(data.toString(Utf8));
             if (parsed && parsed.hash === ADMIN_PASSWORD_HASH) {
                 return true;
             }
@@ -32,7 +34,7 @@ function loadAdminToken(): boolean {
 
 function saveAdminToken() {
     try {
-        const token = CryptoJS.AES.encrypt(
+        const token = AES.encrypt(
             JSON.stringify({ 
                 loginTime: Date.now(),
                 hash: ADMIN_PASSWORD_HASH 
