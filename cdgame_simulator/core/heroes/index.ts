@@ -41,6 +41,13 @@ import {tanaka_mai_skill1, tanaka_mai_skill2, tanaka_mai_skill3} from './c/tanak
 import {yumeno_maho_skill1, yumeno_maho_skill2, yumeno_maho_skill3} from './c/yumeno-maho';
 import {furutsuka_kozue_skill1, furutsuka_kozue_skill2, furutsuka_kozue_skill3, furutsuka_kozue_skill4} from './uc/furutsuka-kozue';
 import {hinomori_seishi_skill1, hinomori_seishi_skill2, hinomori_seishi_skill3} from './uc/hinomori-seishi';
+import {yano_seiko_skill1, yano_seiko_skill2, yano_seiko_skill3} from './uc/yano-seiko';
+import {esaki_hitomi_skill1, esaki_hitomi_skill2, esaki_hitomi_skill3} from './uc/esaki-hitomi';
+import {esao_kaori_skill1, esao_kaori_skill2, esao_kaori_skill3} from './uc/esao-kaori';
+import {nijo_izumi_skill1, nijo_izumi_skill2, nijo_izumi_skill3} from './uc/nijo-izumi';
+import {kubo_takako_skill1, kubo_takako_skill2, kubo_takako_skill3} from './uc/kubo-takako';
+import {shibuya_akemi_skill1, shibuya_akemi_skill2, shibuya_akemi_skill3} from './uc/shibuya-akemi';
+import {fukuyotsuna_ko_skill1, fukuyotsuna_ko_skill2, fukuyotsuna_ko_skill3} from './uc/fukuyotsuna-ko';
 import {AI} from "../entity";
 
 // SSR角色技能
@@ -334,6 +341,48 @@ HERO('桧森誓子', [
     hinomori_seishi_skill1,
     hinomori_seishi_skill2,
     hinomori_seishi_skill3,
+]);
+
+HERO('亦野诚子', [
+    yano_seiko_skill1,
+    yano_seiko_skill2,
+    yano_seiko_skill3,
+]);
+
+HERO('江崎仁美', [
+    esaki_hitomi_skill1,
+    esaki_hitomi_skill2,
+    esaki_hitomi_skill3,
+]);
+
+HERO('妹尾佳织', [
+    esao_kaori_skill1,
+    esao_kaori_skill2,
+    esao_kaori_skill3,
+]);
+
+HERO('二条泉', [
+    nijo_izumi_skill1,
+    nijo_izumi_skill2,
+    nijo_izumi_skill3,
+]);
+
+HERO('久保贵子', [
+    kubo_takako_skill1,
+    kubo_takako_skill2,
+    kubo_takako_skill3,
+]);
+
+HERO('涩谷尧深', [
+    shibuya_akemi_skill1,
+    shibuya_akemi_skill2,
+    shibuya_akemi_skill3,
+]);
+
+HERO('福与恒子', [
+    fukuyotsuna_ko_skill1,
+    fukuyotsuna_ko_skill2,
+    fukuyotsuna_ko_skill3,
 ]);
 
 // SSR阶选手

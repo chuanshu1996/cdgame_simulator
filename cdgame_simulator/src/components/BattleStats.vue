@@ -112,6 +112,7 @@
     import Utf8 from 'crypto-js/enc-utf8';
     import { updateHeroWinRateStats } from '../utils/hero-win-rate';
     import { RANK_VALUES } from '../config/league';
+    import { HeroData } from '../../core';
     
     const ENCRYPTION_KEY = 'cdgame-record-secret-key-2024';
     
@@ -431,6 +432,15 @@
                 if (isOfficial) {
                     winnerJade *= 2;
                     loserJade *= 2;
+                }
+                
+                // 久保贵子【投注理财】：胜方每有1名带【理财】标签的选手，胜方勾玉+10%
+                const financeCount = winnerHeroIds.filter((id) => {
+                    const h = HeroData.find((x) => String(x.index) === String(id));
+                    return !!h && !!h.label && h.label.split('，').includes('理财');
+                }).length;
+                if (financeCount > 0) {
+                    winnerJade = Math.round(winnerJade * (1 + 0.1 * financeCount));
                 }
                 
                 rollbackData.winnerChanges.jade = winnerJade;

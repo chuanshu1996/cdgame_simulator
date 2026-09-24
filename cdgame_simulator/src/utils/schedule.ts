@@ -973,6 +973,16 @@ export async function settleMatch(
         loserJade *= 2;
     }
 
+    // 久保贵子【投注理财】：胜方每有1名带【理财】标签的选手，胜方勾玉+10%
+    const winnerHeroIds = winner === 0 ? heroIds0 : heroIds1;
+    const financeCount = winnerHeroIds.filter((id: string) => {
+        const h = HeroData.find((x: any) => String(x.index) === String(id));
+        return !!h && !!h.label && h.label.split('，').includes('理财');
+    }).length;
+    if (financeCount > 0) {
+        winnerJade = Math.round(winnerJade * (1 + 0.1 * financeCount));
+    }
+
     const expChanges: { team: RecordTeam; heroId: string; gain: number }[] = [];
     const pushExp = (team: RecordTeam, ids: string[]) => {
         ids.forEach(id => {

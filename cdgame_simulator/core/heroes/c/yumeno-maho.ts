@@ -98,6 +98,7 @@ export const yumeno_maho_skill2: Skill = {
     name: '迷途的真帆',
     passive: true,
     cost: 0,
+    reserveValid: true, // 替补位和应援位也可以触发
     text: '被动技能。所有标签含【迷子】的角色，效果抵抗提升30%。（替补位和应援位也可以触发）',
     handlers: [
         {
@@ -144,7 +145,7 @@ export const yumeno_maho_skill3: Skill = {
     passive: false,
     cost: 0,
     target: SkillTarget.ENEMY,
-    text: '按己方队伍攻击力从高到低的顺序，每回合施放一名队友的3技能，每名队友的3技能整场战斗仅可被施放1次，用尽后不再重复施放。',
+    text: '每次施放时，按己方队伍攻击力从高到低的顺序，施放下一名尚未施放过3技能的队友的3技能；每名队友的3技能整场战斗仅可被模仿1次，全部用尽后改为对单体目标造成攻击力100%的伤害。',
     use(battle: Battle, sourceId: number, selectedId: number) {
         const source = battle.getEntity(sourceId);
         if (!source) return;
