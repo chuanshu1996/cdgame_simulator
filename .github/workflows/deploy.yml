@@ -33,6 +33,12 @@ jobs:
         run: npm run build
         env:
           VUE_APP_API_BASE: ${{ vars.VUE_APP_API_BASE }}
+      # vue-cli build 会清空 outputDir（cdgame_simulator/docs），导致手工维护的 avatar
+      # 被删除；build 后再把仓库根的 docs/avatar 复制回来，避免部署后头像 404。
+      - name: Restore avatar assets (build cleans outputDir)
+        run: |
+          mkdir -p cdgame_simulator/docs/avatar
+          cp -r docs/avatar/. cdgame_simulator/docs/avatar/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
